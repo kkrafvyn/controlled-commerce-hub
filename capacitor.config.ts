@@ -4,6 +4,10 @@ const config: CapacitorConfig = {
   appId: 'com.ajyn.app',
   appName: 'AJYN',
   webDir: 'dist',
+  server: {
+    androidScheme: 'https',
+    hostname: 'localhost',
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 1600,

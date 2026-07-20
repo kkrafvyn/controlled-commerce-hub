@@ -18,6 +18,7 @@
     "cap:open:ios": "cap open ios",
     "cap:run:android": "npm run cap:sync && cap run android",
     "cap:run:ios": "npm run cap:sync && cap run ios",
+    "cap:build:android:release": "npm run cap:sync && cd android && gradlew.bat bundleRelease",
     "playwright:install": "playwright install chromium",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:mobile": "npm run build && playwright test --project=mobile-chromium",
@@ -27,6 +28,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
+    "@capacitor/app": "^8.1.0",
     "@capacitor/core": "^8.3.4",
     "@capacitor/ios": "^8.3.4",
     "@capacitor/splash-screen": "^8.0.1",

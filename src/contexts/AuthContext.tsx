@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { STORAGE_KEYS, getStoredItem, removeStoredItems } from '@/lib/brand';
+import { getOAuthRedirectUrl, installNativeAuthDeepLinkHandler, isNativeAppRuntime, APP_PACKAGE_ID } from '@/lib/native-app';
 
 interface AuthContextType {
   user: User | null;
@@ -74,22 +75,6 @@ function hasRecoverableTemporarySession() {
   return Number.isFinite(expiresAt) && expiresAt > Date.now();
 }
 
-function getOAuthRedirectUrl() {
-  if (typeof window === 'undefined') {
-    return '/auth';
-  }
-
-  const currentUrl = new URL(window.location.href);
-  const callbackUrl = new URL('/auth', currentUrl.origin);
-  callbackUrl.hash = '';
-
-  if (currentUrl.pathname === '/auth') {
-    callbackUrl.search = currentUrl.search;
-  }
-
-  return callbackUrl.toString();
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -100,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [managerPermissions, setManagerPermissions] = useState<string[]>([]);
 
   useEffect(() => {
+    const removeDeepLinkHandler = installNativeAuthDeepLinkHandler();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -147,7 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      removeDeepLinkHandler();
+      subscription.unsubscribe();
+    };
   }, []);
 
   const checkUserRole = async (userId: string) => {
@@ -243,8 +233,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    const resetRedirect = isNativeAppRuntime()
+      ? `${APP_PACKAGE_ID}://auth?tab=reset`
+      : `${window.location.origin}/auth?tab=reset`;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth?tab=reset`,
+      redirectTo: resetRedirect,
     });
     return { error: error as Error | null };
   };

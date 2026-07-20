@@ -42,6 +42,8 @@ Premium e-commerce storefront for curated cross-border shopping, built with Reac
 
 Capacitor is configured for Android and iOS with app ID `com.ajyn.app`, app name `AJYN`, and Vite output directory `dist`.
 
+See [docs/ANDROID_RELEASE.md](docs/ANDROID_RELEASE.md) for keystore setup, signed AAB builds, and Play Console upload steps.
+
 1. Run `npm run cap:sync` after web changes.
 2. Use Android Studio for `android/`.
 3. Use Xcode on macOS for `ios/`.
