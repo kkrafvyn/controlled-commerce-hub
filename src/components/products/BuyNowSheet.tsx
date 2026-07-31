@@ -22,6 +22,7 @@ import {
   CheckoutSavingsCard,
   CheckoutSavingsDialog,
 } from '@/components/checkout/CheckoutSavingsControls';
+import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 import {
   Sheet,
   SheetContent,
