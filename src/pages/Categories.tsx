@@ -9,47 +9,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader2, Eye } from 'lucide-react';
 import { ProductQuickView } from '@/components/products/ProductQuickView';
+import { toConsumerProduct } from '@/lib/product-adapters';
 
 function toQuickViewFormat(product: ProductWithDetails) {
-  return {
-    id: product.id,
-    name: product.name,
-    description: product.description || '',
-    category: product.category_name || 'Uncategorized',
-    basePrice: product.base_price,
-    images: product.images.length > 0 ? product.images : ['https://via.placeholder.com/400'],
-    variants: product.variants.map((v) => ({
-      id: v.id,
-      size: v.size || undefined,
-      color: v.color || undefined,
-      price: v.price,
-      stock: v.stock || 0,
-      image_url: v.image_url || null,
-    })),
-    shippingOptions: product.shipping_rules
-      .filter((r) => r.is_allowed && r.shipping_class)
-      .map((r) => ({
-        id: r.id,
-        type: (r.shipping_class?.shipping_type?.name?.toLowerCase().includes('sea')
-          ? 'sea'
-          : r.shipping_class?.shipping_type?.name?.toLowerCase().includes('express')
-            ? 'air_express'
-            : 'air_normal') as 'sea' | 'air_normal' | 'air_express',
-        name: r.shipping_class?.name || '',
-        details:
-          r.shipping_class?.description || r.shipping_class?.shipping_type?.description || undefined,
-        price: r.price,
-        estimatedDays: r.shipping_class
-          ? `${r.shipping_class.estimated_days_min}-${r.shipping_class.estimated_days_max} days`
-          : '',
-        available: true,
-      })),
-    isGroupBuyEligible: product.is_group_buy_eligible || false,
-    isFlashDeal: product.is_flash_deal || false,
-    isFreeShippingEligible: product.is_free_shipping || false,
-    rating: product.rating || 0,
-    reviewCount: product.review_count || 0,
-  };
+  return toConsumerProduct(product);
 }
 
 export default function Categories() {

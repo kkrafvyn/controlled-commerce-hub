@@ -228,14 +228,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
       product_variant_id,
       quantity,
       product_variants!inner(
-        id,
-        product_id,
-        size,
-        color,
-        price_override,
-        stock,
-        variant_image_url,
-        shipping_prices,
+        *,
         product:products!product_variants_product_id_fkey(
           id,
           name,
@@ -297,7 +290,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
       .order('order_index'),
     supabase
       .from('product_variants')
-      .select('id, product_id, size, color, price_override, stock, variant_image_url, shipping_prices')
+      .select('*')
       .in('product_id', productIds)
       .eq('is_active', true),
     supabase

@@ -12,6 +12,7 @@ interface Variant {
   price: number;
   stock: number | null;
   image_url?: string | null;
+  shipping_prices?: Record<string, number>;
 }
 
 interface SelectedVariant extends Variant {

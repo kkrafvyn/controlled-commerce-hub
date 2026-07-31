@@ -8,30 +8,10 @@ import { useProducts, type ProductWithDetails } from '@/hooks/useProducts';
 import { ProductCard } from '@/components/products/ProductCard';
 import { Button } from '@/components/ui/button';
 import { useEffect } from 'react';
+import { toConsumerProduct } from '@/lib/product-adapters';
 
 function toProductCardFormat(product: ProductWithDetails) {
-  return {
-    id: product.id,
-    name: product.name,
-    description: product.description || '',
-    category: product.category_name || 'Uncategorized',
-    basePrice: product.base_price,
-    images: product.images.length > 0 ? product.images : ['https://via.placeholder.com/400'],
-    variants: product.variants.map((variant) => ({
-      id: variant.id,
-      size: variant.size || undefined,
-      color: variant.color || undefined,
-      price: variant.price,
-      stock: variant.stock || 0,
-      image_url: variant.image_url || null,
-    })),
-    shippingOptions: [],
-    isGroupBuyEligible: product.is_group_buy_eligible || false,
-    isFlashDeal: product.is_flash_deal || false,
-    isFreeShippingEligible: product.is_free_shipping || false,
-    rating: product.rating || 0,
-    reviewCount: product.review_count || 0,
-  };
+  return toConsumerProduct(product);
 }
 
 export default function Wishlist() {

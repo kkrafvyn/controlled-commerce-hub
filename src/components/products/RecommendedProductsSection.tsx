@@ -5,6 +5,7 @@ import { useProducts, type ProductWithDetails } from '@/hooks/useProducts';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import type { Product } from '@/types';
+import { toConsumerProduct } from '@/lib/product-adapters';
 
 interface RecommendedProductsSectionProps {
   title: string;
@@ -22,43 +23,7 @@ function toCardProduct(product: ProductWithDetails): CardProduct {
   const totalStock = product.variants.reduce((sum, variant) => sum + Math.max(0, variant.stock || 0), 0);
 
   return {
-    id: product.id,
-    name: product.name,
-    description: product.description || '',
-    category: product.category_name || 'Uncategorized',
-    basePrice: product.base_price,
-    images: product.images.length > 0 ? product.images : ['/placeholder.svg'],
-    variants: product.variants.map((variant) => ({
-      id: variant.id,
-      size: variant.size || undefined,
-      color: variant.color || undefined,
-      price: variant.price,
-      stock: variant.stock || 0,
-      image_url: variant.image_url || null,
-    })),
-    shippingOptions: product.shipping_rules
-      .filter((rule) => rule.is_allowed && rule.shipping_class)
-      .map((rule) => ({
-        id: rule.id,
-        type: rule.shipping_class?.shipping_type?.name?.toLowerCase().includes('sea')
-          ? 'sea'
-          : rule.shipping_class?.shipping_type?.name?.toLowerCase().includes('express')
-            ? 'air_express'
-            : 'air_normal',
-        name: rule.shipping_class?.name || '',
-        details:
-          rule.shipping_class?.description || rule.shipping_class?.shipping_type?.description || undefined,
-        price: rule.price,
-        estimatedDays: rule.shipping_class
-          ? `${rule.shipping_class.estimated_days_min}-${rule.shipping_class.estimated_days_max} days`
-          : '',
-        available: true,
-      })),
-    isGroupBuyEligible: !!product.is_group_buy_eligible,
-    isFlashDeal: !!product.is_flash_deal,
-    isFreeShippingEligible: !!product.is_free_shipping,
-    rating: Number(product.rating) || 0,
-    reviewCount: product.review_count || 0,
+    ...toConsumerProduct(product),
     isReadyNow: totalStock > 0,
   };
 }

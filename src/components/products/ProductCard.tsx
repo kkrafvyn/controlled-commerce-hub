@@ -8,6 +8,7 @@ import { useWishlist } from '@/hooks/useWishlist';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompare } from '@/contexts/CompareContext';
 import { useCurrency } from '@/hooks/useCurrency';
+import { getProductDisplayPrice } from '@/lib/product-adapters';
 import { toast } from 'sonner';
 
 interface ExtendedProduct extends Product {
@@ -60,6 +61,12 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
     onQuickView?.(product);
   };
 
+  const displayPrice = getProductDisplayPrice(product);
+  const priceLabel =
+    displayPrice.kind === 'range'
+      ? `${formatPrice(displayPrice.minPrice)} - ${formatPrice(displayPrice.maxPrice)}`
+      : formatPrice(displayPrice.price);
+
   if (viewMode === 'list') {
     return (
       <Link to={`/product/${product.id}`} className="block h-full min-w-0">
@@ -100,7 +107,7 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-base font-bold text-primary sm:text-xl">
-                  {formatPrice(product.basePrice)}
+                  {priceLabel}
                 </p>
                 <div className="flex items-center justify-between gap-3 sm:justify-end">
                   <div className="flex items-center gap-1">
@@ -202,7 +209,7 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
           </h3>
           <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
             <p className="min-w-0 truncate text-base font-bold text-primary sm:text-lg">
-              {formatPrice(product.basePrice)}
+              {priceLabel}
             </p>
             <div className="flex shrink-0 items-center gap-0.5">
               <Star className="h-3 w-3 sm:h-4 sm:w-4 fill-accent-foreground text-accent-foreground" />

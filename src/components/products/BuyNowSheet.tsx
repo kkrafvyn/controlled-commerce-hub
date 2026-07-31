@@ -246,6 +246,28 @@ export function BuyNowSheet({
       return sum + unitShipping * selection.quantity;
     }, 0);
   }, [checkoutSelections, product.is_free_shipping, product.variants, resolvedShippingRule]);
+  const getRuleShippingPrice = useCallback(
+    (rule: ProductWithDetails['shipping_rules'][number]) => {
+      if (product.is_free_shipping) {
+        return 0;
+      }
+
+      const shippingClassId = rule.shipping_class_id;
+      const productShippingPrice = Number(rule.price || 0);
+
+      return checkoutSelections.reduce((sum, selection) => {
+        const variant = product.variants.find((item) => item.id === selection.variantId);
+        const unitShipping = resolveVariantShippingPrice(
+          variant?.shipping_prices,
+          shippingClassId,
+          productShippingPrice,
+        );
+
+        return sum + unitShipping * selection.quantity;
+      }, 0);
+    },
+    [checkoutSelections, product.is_free_shipping, product.variants],
+  );
   const checkoutShippingCost =
     deferShippingPayment && deferShippingPaymentEnabled ? 0 : effectiveShippingCost;
   const showDeferShippingOption =
@@ -959,7 +981,7 @@ export function BuyNowSheet({
                               {rule.shipping_class?.name}
                             </p>
                             <p className="shrink-0 text-right font-semibold text-primary">
-                              {product.is_free_shipping ? 'Free' : formatPrice(Number(rule.price || 0))}
+                              {product.is_free_shipping ? 'Free' : formatPrice(getRuleShippingPrice(rule))}
                             </p>
                           </div>
                           <p className="text-xs text-muted-foreground">

@@ -481,7 +481,7 @@ export function AdminProducts() {
           price_override: v.price_override ? String(v.price_override) : '',
           shipping_prices: formatShippingPricesForForm(
             v.shipping_prices as Record<string, number> | null | undefined,
-          ),
+          ) || {},
           stock: String(v.stock || 0),
           sku: v.sku || '',
           image_url: v.variant_image_url || null,

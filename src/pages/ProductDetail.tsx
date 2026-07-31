@@ -24,7 +24,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useProduct, ProductWithDetails } from '@/hooks/useProducts';
 import { useCart } from '@/contexts/CartContext';
-import { ProductVariant, Product } from '@/types';
+import { ProductVariant } from '@/types';
 import { ProductReviews } from '@/components/products/ProductReviews';
 import { RelatedProducts } from '@/components/products/RelatedProducts';
 import { VariantSelector } from '@/components/products/VariantSelector';
@@ -61,49 +61,8 @@ import {
 import { buildDetailGalleryImages } from '@/lib/product-images';
 import { formatStoreMonthDay } from '@/lib/date-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-
-// Convert DB product to legacy Product type for cart
-function toCartProduct(product: ProductWithDetails): Product {
-  return {
-    id: product.id,
-    name: product.name,
-    description: product.description || '',
-    category: product.category_name || 'Uncategorized',
-    basePrice: product.base_price,
-    images: product.images.length > 0 ? product.images : ['https://via.placeholder.com/400'],
-    variants: product.variants.map((v) => ({
-      id: v.id,
-      size: v.size || undefined,
-      color: v.color || undefined,
-      price: v.price,
-      stock: v.stock || 0,
-      image_url: v.image_url || null,
-    })),
-    shippingOptions: product.shipping_rules
-      .filter((r) => r.is_allowed && r.shipping_class)
-      .map((r) => ({
-        id: r.id,
-        type: (r.shipping_class?.shipping_type?.name?.toLowerCase().includes('sea')
-          ? 'sea'
-          : r.shipping_class?.shipping_type?.name?.toLowerCase().includes('express')
-          ? 'air_express'
-          : 'air_normal') as 'sea' | 'air_normal' | 'air_express',
-        name: r.shipping_class?.name || '',
-        details:
-          r.shipping_class?.description || r.shipping_class?.shipping_type?.description || undefined,
-        price: r.price,
-        estimatedDays: r.shipping_class
-          ? `${r.shipping_class.estimated_days_min}-${r.shipping_class.estimated_days_max} days`
-          : '',
-        available: true,
-      })),
-    isGroupBuyEligible: product.is_group_buy_eligible || false,
-    isFlashDeal: product.is_flash_deal || false,
-    isFreeShippingEligible: product.is_free_shipping || false,
-    rating: product.rating || 0,
-    reviewCount: product.review_count || 0,
-  };
-}
+import { getProductDisplayPrice, toConsumerProduct, toConsumerVariant } from '@/lib/product-adapters';
+import { resolveVariantShippingPrice } from '@/lib/shipping';
 
 interface SelectedVariant {
   id: string;
@@ -114,6 +73,7 @@ interface SelectedVariant {
   sku: string | null;
   quantity: number;
   image_url: string | null;
+  shipping_prices?: Record<string, number>;
 }
 
 interface ShippingRule {
@@ -383,7 +343,7 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (!product) return;
-    const cartProduct = toCartProduct(product);
+    const cartProduct = toConsumerProduct(product);
 
     if (selectedVariants.length === 0) {
       if (product.variants.length > 0) {
@@ -404,15 +364,7 @@ export default function ProductDetail() {
     }
 
     selectedVariants.forEach((variant) => {
-      const cartVariant: ProductVariant = {
-        id: variant.id,
-        size: variant.size || undefined,
-        color: variant.color || undefined,
-        price: variant.price,
-        stock: variant.stock || 0,
-        image_url: variant.image_url || null,
-      };
-      addToCart(cartProduct, cartVariant, variant.quantity);
+      addToCart(cartProduct, toConsumerVariant(variant), variant.quantity);
     });
     trackRecommendationEvent({
       productId: product.id,
@@ -526,10 +478,64 @@ export default function ProductDetail() {
     ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
     : 0;
   const mobilePreviewUnitPrice = mobileActiveVariant?.price ?? product.base_price;
-  const previewShippingUnitCost =
-    product.is_free_shipping || !highlightedShipping ? 0 : Number(highlightedShipping.price || 0);
   const previewShippingQuantity = selectedVariants.length > 0 ? Math.max(1, selectedItemCount) : 1;
-  const previewShippingCost = previewShippingUnitCost * previewShippingQuantity;
+  const previewShippingCost = (() => {
+    if (product.is_free_shipping || !highlightedShipping) {
+      return 0;
+    }
+
+    const shippingClassId = highlightedShipping.shipping_class_id;
+    const productShippingPrice = Number(highlightedShipping.price || 0);
+
+    if (selectedVariants.length > 0) {
+      return selectedVariants.reduce((sum, variant) => {
+        const unitShipping = resolveVariantShippingPrice(
+          variant.shipping_prices,
+          shippingClassId,
+          productShippingPrice,
+        );
+        return sum + unitShipping * variant.quantity;
+      }, 0);
+    }
+
+    const unitShipping = resolveVariantShippingPrice(
+      mobileActiveVariant?.shipping_prices,
+      shippingClassId,
+      productShippingPrice,
+    );
+    return unitShipping * previewShippingQuantity;
+  })();
+  const consumerProduct = toConsumerProduct(product);
+  const displayPrice = (() => {
+    if (selectedVariants.length > 0) {
+      return { kind: 'single' as const, price: totalPrice / Math.max(1, selectedItemCount) };
+    }
+
+    if (mobileActiveVariant) {
+      return { kind: 'single' as const, price: mobileActiveVariant.price };
+    }
+
+    return getProductDisplayPrice(consumerProduct);
+  })();
+  const getShippingOptionPrice = (option: ShippingRule) => {
+    if (product.is_free_shipping) {
+      return 0;
+    }
+
+    const productShippingPrice = Number(option.price || 0);
+    const shippingClassId = option.shipping_class_id;
+    const activeVariant = selectedVariants[0] || mobileActiveVariant;
+
+    if (activeVariant) {
+      return resolveVariantShippingPrice(
+        activeVariant.shipping_prices,
+        shippingClassId,
+        productShippingPrice,
+      );
+    }
+
+    return productShippingPrice;
+  };
   const mobileEstimatedTotal =
     (selectedVariants.length > 0 ? totalPrice : mobilePreviewUnitPrice) + previewShippingCost;
   const selectedVariantCount = selectedVariants.length;
@@ -736,7 +742,11 @@ export default function ProductDetail() {
                 {product.name}
               </h1>
               <div className="flex items-end gap-2">
-                <p className="text-[1.75rem] font-bold leading-none text-primary">{formatPrice(product.base_price)}</p>
+                <p className="text-[1.75rem] font-bold leading-none text-primary">
+                  {displayPrice.kind === 'range'
+                    ? `${formatPrice(displayPrice.minPrice)} - ${formatPrice(displayPrice.maxPrice)}`
+                    : formatPrice(displayPrice.price)}
+                </p>
                 {product.group_buy_price != null && product.group_buy_price < product.base_price ? (
                   <p className="pb-0.5 text-[11px] font-medium text-primary">
                     Save {groupBuySavings}%
@@ -885,7 +895,7 @@ export default function ProductDetail() {
                               </p>
                             </div>
                             <p className="shrink-0 text-right text-sm font-semibold text-primary">
-                              {product.is_free_shipping ? 'Free' : formatPrice(option.price)}
+                              {product.is_free_shipping ? 'Free' : formatPrice(getShippingOptionPrice(option))}
                             </p>
                           </div>
                       </button>
@@ -964,7 +974,11 @@ export default function ProductDetail() {
                 </div>
 
                 <div>
-                  <p className="text-3xl font-bold text-primary">{formatPrice(product.base_price)}</p>
+                  <p className="text-3xl font-bold text-primary">
+                    {displayPrice.kind === 'range'
+                      ? `${formatPrice(displayPrice.minPrice)} - ${formatPrice(displayPrice.maxPrice)}`
+                      : formatPrice(displayPrice.price)}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">Starting from</p>
                   {product.group_buy_price != null && product.group_buy_price < product.base_price && (
                     <p className="mt-2 text-sm text-primary">
@@ -1124,7 +1138,7 @@ export default function ProductDetail() {
                                 )}
                               </div>
                             </div>
-                            <p className="shrink-0 pl-11 text-right text-sm font-semibold text-primary sm:pl-0">{formatPrice(option.price)}</p>
+                            <p className="shrink-0 pl-11 text-right text-sm font-semibold text-primary sm:pl-0">{formatPrice(getShippingOptionPrice(option))}</p>
                           </CardContent>
                         </Card>
                       ))}

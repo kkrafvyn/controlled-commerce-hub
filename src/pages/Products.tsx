@@ -27,6 +27,7 @@ import { ProductQuickView } from '@/components/products/ProductQuickView';
 import { useProducts, ProductWithDetails } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import type { Product } from '@/types';
+import { toConsumerProduct } from '@/lib/product-adapters';
 import {
   useDeleteSavedSearch,
   useSaveSavedSearch,
@@ -152,45 +153,7 @@ function sameSavedSearchFilters(a: SavedSearchFilters, b: SavedSearchFilters) {
 
 // Adapter to convert DB product to the format expected by ProductCard
 function toProductCardFormat(product: ProductWithDetails): Product {
-  return {
-    id: product.id,
-    name: product.name,
-    description: product.description || '',
-    category: product.category_name || 'Uncategorized',
-    basePrice: product.base_price,
-    images: product.images.length > 0 ? product.images : ['https://via.placeholder.com/400'],
-    variants: product.variants.map((variant) => ({
-      id: variant.id,
-      size: variant.size || undefined,
-      color: variant.color || undefined,
-      price: variant.price,
-      stock: variant.stock || 0,
-      image_url: variant.image_url || null,
-    })),
-    shippingOptions: product.shipping_rules
-      .filter((rule) => rule.is_allowed && rule.shipping_class)
-      .map((rule) => ({
-        id: rule.id,
-        type: (rule.shipping_class?.shipping_type?.name?.toLowerCase().includes('sea')
-          ? 'sea'
-          : rule.shipping_class?.shipping_type?.name?.toLowerCase().includes('express')
-            ? 'air_express'
-            : 'air_normal') as 'sea' | 'air_normal' | 'air_express',
-        name: rule.shipping_class?.name || '',
-        details:
-          rule.shipping_class?.description || rule.shipping_class?.shipping_type?.description || undefined,
-        price: rule.price,
-        estimatedDays: rule.shipping_class
-          ? `${rule.shipping_class.estimated_days_min}-${rule.shipping_class.estimated_days_max} days`
-          : '',
-        available: true,
-      })),
-    isGroupBuyEligible: product.is_group_buy_eligible || false,
-    isFlashDeal: product.is_flash_deal || false,
-    isFreeShippingEligible: product.is_free_shipping || false,
-    rating: product.rating || 0,
-    reviewCount: product.review_count || 0,
-  };
+  return toConsumerProduct(product);
 }
 
 export default function Products() {

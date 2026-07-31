@@ -37,10 +37,16 @@ export function formatShippingPricesForForm(
 }
 
 export function hasIndividualVariantShipping(
-  variants: Array<{ shipping_prices?: Record<string, string> }>,
+  variants: Array<{ shipping_prices?: Record<string, string | number> }>,
 ): boolean {
   return variants.some((variant) =>
-    Object.values(variant.shipping_prices || {}).some((price) => price.trim() !== ''),
+    Object.values(variant.shipping_prices || {}).some((price) => {
+      if (typeof price === 'number') {
+        return price > 0;
+      }
+
+      return price.trim() !== '';
+    }),
   );
 }
 
