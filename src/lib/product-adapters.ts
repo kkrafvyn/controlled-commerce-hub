@@ -1,5 +1,5 @@
 import type { ProductWithDetails } from '@/hooks/useProducts';
-import type { Product, ProductVariant } from '@/types';
+import type { CartItem, Product, ProductVariant } from '@/types';
 
 function getShippingType(name?: string | null): Product['shippingOptions'][number]['type'] {
   const normalized = (name || '').toLowerCase();
@@ -9,7 +9,12 @@ function getShippingType(name?: string | null): Product['shippingOptions'][numbe
 }
 
 export function toConsumerVariant(
-  variant: ProductWithDetails['variants'][number],
+  variant: Pick<ProductVariant, 'id' | 'price' | 'stock'> & {
+    size?: string | null;
+    color?: string | null;
+    image_url?: string | null;
+    shipping_prices?: Record<string, number>;
+  },
 ): ProductVariant {
   return {
     id: variant.id,
@@ -56,7 +61,7 @@ export function toConsumerProduct(product: ProductWithDetails): Product {
 export function getProductDisplayPrice(product: Pick<Product, 'basePrice' | 'variants'>) {
   const variantPrices = product.variants
     .map((variant) => variant.price)
-    .filter((price) => Number.isFinite(price) && price > 0);
+    .filter((price) => Number.isFinite(price));
 
   if (variantPrices.length === 0) {
     return { kind: 'single' as const, price: product.basePrice };
@@ -70,4 +75,33 @@ export function getProductDisplayPrice(product: Pick<Product, 'basePrice' | 'var
   }
 
   return { kind: 'range' as const, minPrice, maxPrice };
+}
+
+export function refreshCartItemFromCatalog(
+  item: CartItem,
+  catalogProduct: ProductWithDetails,
+): CartItem {
+  const product = toConsumerProduct(catalogProduct);
+  const catalogVariant = product.variants.find((variant) => variant.id === item.variant.id);
+
+  if (!catalogVariant) {
+    return {
+      ...item,
+      product,
+      variant: {
+        ...item.variant,
+        shipping_prices: item.variant.shipping_prices || {},
+      },
+    };
+  }
+
+  return {
+    ...item,
+    product,
+    variant: {
+      ...item.variant,
+      ...catalogVariant,
+      shipping_prices: catalogVariant.shipping_prices || {},
+    },
+  };
 }

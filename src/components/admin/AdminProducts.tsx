@@ -129,18 +129,81 @@ async function uploadVariantImage(productId: string, file: File): Promise<string
 }
 
 async function buildVariantRecord(productId: string, variant: VariantData): Promise<ProductVariantInsert> {
-  return {
+  const shippingPrices = serializeShippingPrices(variant.shipping_prices);
+  const record: ProductVariantInsert = {
     product_id: productId,
     size: variant.size || null,
     color: variant.color || null,
     price_override: variant.price_override ? parseFloat(variant.price_override) : null,
-    shipping_prices: serializeShippingPrices(variant.shipping_prices),
     stock: parseInt(variant.stock, 10) || 0,
     sku: variant.sku || null,
     variant_image_url: variant.image_file
       ? await uploadVariantImage(productId, variant.image_file)
       : variant.image_url || null,
   };
+
+  if (Object.keys(shippingPrices).length > 0) {
+    record.shipping_prices = shippingPrices;
+  }
+
+  return record;
+}
+
+function isMissingShippingPricesColumnError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /shipping_prices/i.test(message) && /(column|schema cache|does not exist)/i.test(message);
+}
+
+async function writeVariantRecord(
+  productId: string,
+  variant: VariantData,
+  mode: 'insert' | 'update',
+) {
+  const record = await buildVariantRecord(productId, variant);
+
+  if (mode === 'update' && variant.id) {
+    const { error } = await supabase
+      .from('product_variants')
+      .update(record as ProductVariantUpdate)
+      .eq('product_id', productId)
+      .eq('id', variant.id);
+
+    if (!error) {
+      return;
+    }
+
+    if (!isMissingShippingPricesColumnError(error)) {
+      throw error;
+    }
+
+    const { shipping_prices: _shippingPrices, ...recordWithoutShipping } = record;
+    const { error: retryError } = await supabase
+      .from('product_variants')
+      .update(recordWithoutShipping as ProductVariantUpdate)
+      .eq('product_id', productId)
+      .eq('id', variant.id);
+
+    if (retryError) {
+      throw retryError;
+    }
+
+    return;
+  }
+
+  const { error } = await supabase.from('product_variants').insert(record);
+  if (!error) {
+    return;
+  }
+
+  if (!isMissingShippingPricesColumnError(error)) {
+    throw error;
+  }
+
+  const { shipping_prices: _shippingPrices, ...recordWithoutShipping } = record;
+  const { error: retryError } = await supabase.from('product_variants').insert(recordWithoutShipping);
+  if (retryError) {
+    throw retryError;
+  }
 }
 
 async function createProductVariants(productId: string, nextVariants: VariantData[]) {
@@ -148,13 +211,8 @@ async function createProductVariants(productId: string, nextVariants: VariantDat
     return;
   }
 
-  const variantRecords = await Promise.all(
-    nextVariants.map((variant) => buildVariantRecord(productId, variant)),
-  );
-  const { error } = await supabase.from('product_variants').insert(variantRecords);
-
-  if (error) {
-    throw error;
+  for (const variant of nextVariants) {
+    await writeVariantRecord(productId, variant, 'insert');
   }
 }
 
@@ -188,25 +246,12 @@ async function syncProductVariants(productId: string, nextVariants: VariantData[
   }
 
   for (const variant of nextVariants) {
-    const record = await buildVariantRecord(productId, variant);
-
     if (variant.id) {
-      const { error } = await supabase
-        .from('product_variants')
-        .update(record as ProductVariantUpdate)
-        .eq('product_id', productId)
-        .eq('id', variant.id);
-
-      if (error) {
-        throw error;
-      }
-    } else {
-      const { error } = await supabase.from('product_variants').insert(record);
-
-      if (error) {
-        throw error;
-      }
+      await writeVariantRecord(productId, variant, 'update');
+      continue;
     }
+
+    await writeVariantRecord(productId, variant, 'insert');
   }
 }
 
@@ -481,7 +526,7 @@ export function AdminProducts() {
           price_override: v.price_override ? String(v.price_override) : '',
           shipping_prices: formatShippingPricesForForm(
             v.shipping_prices as Record<string, number> | null | undefined,
-          ) || {},
+          ),
           stock: String(v.stock || 0),
           sku: v.sku || '',
           image_url: v.variant_image_url || null,

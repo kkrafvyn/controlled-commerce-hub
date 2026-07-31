@@ -314,7 +314,7 @@ export default function Checkout() {
           productMeta[rule.product_id]?.is_free_shipping ||
           item.product.isFreeShippingEligible;
         const unitShippingPrice = resolveVariantShippingPrice(
-          item.variant.shipping_prices,
+          item.variant?.shipping_prices,
           sc.id,
           productUnitShippingPrice,
         );

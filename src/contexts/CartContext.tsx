@@ -13,6 +13,8 @@ import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { STORAGE_KEYS, getStoredItem, removeStoredItems } from '@/lib/brand';
 import { parseShippingPrices } from '@/lib/shipping';
+import { refreshCartItemFromCatalog } from '@/lib/product-adapters';
+import { useProducts } from '@/hooks/useProducts';
 import { CartItem, Product, ProductVariant, ShippingOption } from '@/types';
 
 type CartSyncState = 'local' | 'syncing' | 'synced' | 'error';
@@ -113,6 +115,7 @@ function createPlaceholderVariant(product: Product): ProductVariant {
     size: undefined,
     price: product.basePrice,
     stock: 0,
+    shipping_prices: {},
   };
 }
 
@@ -124,6 +127,10 @@ function normalizeCartItem(item: CartItem): CartItem {
   return {
     ...item,
     id: buildCartItemId(item.product.id, item.variant.id),
+    variant: {
+      ...item.variant,
+      shipping_prices: item.variant.shipping_prices || {},
+    },
   };
 }
 
@@ -401,6 +408,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
+  const { data: catalogProducts } = useProducts();
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
       const storedCart = getStoredItem(localStorage, [STORAGE_KEY, ...LEGACY_STORAGE_KEYS]);
@@ -423,6 +431,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     latestItemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    if (!catalogProducts?.length) {
+      return;
+    }
+
+    setItems((currentItems) => {
+      const refreshedItems = currentItems.map((item) => {
+        const catalogProduct = catalogProducts.find((product) => product.id === item.product.id);
+        if (!catalogProduct) {
+          return normalizeCartItem(item);
+        }
+
+        return refreshCartItemFromCatalog(item, catalogProduct);
+      });
+
+      return getCartSignature(currentItems) === getCartSignature(refreshedItems)
+        ? currentItems
+        : refreshedItems;
+    });
+  }, [catalogProducts]);
 
   // Persist cart to localStorage
   useEffect(() => {

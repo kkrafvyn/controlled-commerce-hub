@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { getProductDisplayPrice, toConsumerProduct } from '@/lib/product-adapters';
+import { getProductDisplayPrice, refreshCartItemFromCatalog, toConsumerProduct } from '@/lib/product-adapters';
 import type { ProductWithDetails } from '@/hooks/useProducts';
+import type { CartItem } from '@/types';
 
 const baseProduct: ProductWithDetails = {
   id: 'product-1',
@@ -66,5 +67,44 @@ describe('product adapters', () => {
       minPrice: 90,
       maxPrice: 130,
     });
+  });
+
+  it('refreshes stale cart variants from the live catalog', () => {
+    const cartItem: CartItem = {
+      id: 'product-1:variant-1',
+      quantity: 1,
+      product: {
+        id: 'product-1',
+        name: 'Sample',
+        description: 'Desc',
+        category: 'Shoes',
+        basePrice: 100,
+        images: ['/image.jpg'],
+        variants: [
+          {
+            id: 'variant-1',
+            price: 100,
+            stock: 5,
+          },
+        ],
+        shippingOptions: [],
+        isGroupBuyEligible: false,
+        isFlashDeal: false,
+        isFreeShippingEligible: false,
+        rating: 0,
+        reviewCount: 0,
+      },
+      variant: {
+        id: 'variant-1',
+        price: 100,
+        stock: 5,
+      },
+    };
+
+    const refreshed = refreshCartItemFromCatalog(cartItem, baseProduct);
+
+    expect(refreshed.variant.price).toBe(120);
+    expect(refreshed.variant.shipping_prices).toEqual({ 'class-1': 15 });
+    expect(refreshed.product.variants[0].shipping_prices).toEqual({ 'class-1': 15 });
   });
 });

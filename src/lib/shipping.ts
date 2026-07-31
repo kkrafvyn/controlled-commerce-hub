@@ -11,7 +11,7 @@ export function parseShippingPrices(value: unknown): Record<string, number> {
 }
 
 export function serializeShippingPrices(
-  prices: Record<string, string> | undefined,
+  prices: Record<string, string | number> | undefined,
 ): Record<string, number> {
   if (!prices) {
     return {};
@@ -19,8 +19,8 @@ export function serializeShippingPrices(
 
   return Object.fromEntries(
     Object.entries(prices)
-      .filter(([, price]) => price.trim() !== '')
-      .map(([shippingClassId, price]) => [shippingClassId, parseFloat(price) || 0]),
+      .filter(([, price]) => String(price ?? '').trim() !== '')
+      .map(([shippingClassId, price]) => [shippingClassId, parseFloat(String(price)) || 0]),
   );
 }
 

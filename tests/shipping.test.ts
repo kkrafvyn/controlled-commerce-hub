@@ -26,6 +26,16 @@ describe('shipping helpers', () => {
     });
   });
 
+  it('serializes numeric shipping prices', () => {
+    expect(
+      serializeShippingPrices({
+        'class-1': 20,
+      }),
+    ).toEqual({
+      'class-1': 20,
+    });
+  });
+
   it('resolves variant shipping override before product price', () => {
     expect(
       resolveVariantShippingPrice({ 'class-1': 20 }, 'class-1', 10),
