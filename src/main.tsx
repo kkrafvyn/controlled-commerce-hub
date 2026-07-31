@@ -1,11 +1,12 @@
 import { createRoot } from "react-dom/client";
+import { registerSW } from "virtual:pwa-register";
 import App from "./App.tsx";
 import "./index.css";
+import { registerAppUpdateRecovery } from "@/lib/app-update";
 import { STORAGE_KEYS, getStoredItem, removeStoredItems } from "@/lib/brand";
 
 const BUILD_ID_STORAGE_KEY = STORAGE_KEYS.buildId;
 const LEGACY_BUILD_ID_STORAGE_KEYS = STORAGE_KEYS.buildIdLegacy;
-const STALE_CACHE_PREFIXES = ["supabase-cache", "workbox", "vite-plugin-pwa"];
 
 async function cleanupLegacyPushWorkers() {
   const registrations = await navigator.serviceWorker.getRegistrations();
@@ -27,11 +28,7 @@ async function cleanupLegacyPushWorkers() {
   return true;
 }
 
-async function cleanupCachesForNewBuild() {
-  if (!("caches" in window)) {
-    return false;
-  }
-
+async function handleBuildChange(): Promise<boolean> {
   const previousBuildId = getStoredItem(
     localStorage,
     [BUILD_ID_STORAGE_KEY, ...LEGACY_BUILD_ID_STORAGE_KEYS],
@@ -43,42 +40,45 @@ async function cleanupCachesForNewBuild() {
     return false;
   }
 
-  const cacheKeys = await caches.keys();
-  const staleKeys = cacheKeys.filter((key) =>
-    STALE_CACHE_PREFIXES.some((prefix) => key.includes(prefix)),
-  );
-
-  if (staleKeys.length === 0) {
-    return false;
+  if ("caches" in window) {
+    const cacheKeys = await caches.keys();
+    await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+    console.log("[PWA] Cleared caches after build change", {
+      previousBuildId,
+      currentBuildId: __APP_BUILD_ID__,
+      cacheCount: cacheKeys.length,
+    });
   }
-
-  await Promise.all(staleKeys.map((key) => caches.delete(key)));
-  console.log("[PWA] Cleared stale caches after build change", {
-    previousBuildId,
-    currentBuildId: __APP_BUILD_ID__,
-    cacheCount: staleKeys.length,
-  });
 
   return true;
 }
 
-// Clean up the legacy standalone push worker. The PWA worker now imports the
-// push handlers so we avoid two workers competing for the same "/" scope.
+registerAppUpdateRecovery();
+
+if (import.meta.env.PROD) {
+  registerSW({
+    immediate: true,
+    onNeedRefresh() {
+      window.location.reload();
+    },
+  });
+}
+
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", async () => {
+  void (async () => {
     try {
       const legacyRemoved = await cleanupLegacyPushWorkers();
-      const staleCachesCleared = await cleanupCachesForNewBuild();
+      const buildChanged = await handleBuildChange();
       const registrations = await navigator.serviceWorker.getRegistrations();
       await Promise.all(registrations.map((registration) => registration.update().catch(() => undefined)));
 
-      if (legacyRemoved || staleCachesCleared) {
+      if (legacyRemoved || buildChanged) {
         window.location.reload();
       }
     } catch (error) {
       console.error("[PWA] Service worker cleanup failed:", error);
     }
-  });
+  })();
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

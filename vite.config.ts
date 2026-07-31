@@ -100,6 +100,16 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       mode === "development" && componentTagger(),
+      {
+        name: "emit-build-id",
+        generateBundle() {
+          this.emitFile({
+            type: "asset",
+            fileName: "build-id.txt",
+            source: buildId,
+          });
+        },
+      },
       VitePWA({
         registerType: "autoUpdate",
         includeAssets: ["favicon.svg", "favicon.png", "favicon-192.png", "favicon-512.png", "favicon.ico", "robots.txt"],
@@ -137,7 +147,23 @@ export default defineConfig(({ mode }) => {
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
-          globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+          globPatterns: ["**/*.{js,css,ico,png,svg,woff,woff2}"],
+          navigateFallback: "/index.html",
+          navigateFallbackDenylist: [/^\/api/, /^\/supabase\//],
+          runtimeCaching: [
+            {
+              urlPattern: ({ request }) => request.mode === "navigate",
+              handler: "NetworkFirst",
+              options: {
+                cacheName: "html-documents",
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60,
+                },
+                networkTimeoutSeconds: 3,
+              },
+            },
+          ],
           importScripts: ["/sw-push.js"],
         },
       }),
