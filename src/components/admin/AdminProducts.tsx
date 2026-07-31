@@ -37,6 +37,7 @@ import { ProductVariantsManager, VariantData } from './ProductVariantsManager';
 import { ProductShippingRules, ShippingRuleData } from './ProductShippingRules';
 import { productSchema, validateForm } from '@/lib/validations/admin';
 import { formatShippingPricesForForm, serializeShippingPrices } from '@/lib/shipping';
+import { fetchProductVariants, isMissingShippingPricesColumnError } from '@/lib/supabase-variants';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
 import { invalidateProductCatalogQueries } from '@/hooks/useProductCatalogSync';
@@ -142,16 +143,9 @@ async function buildVariantRecord(productId: string, variant: VariantData): Prom
       : variant.image_url || null,
   };
 
-  if (Object.keys(shippingPrices).length > 0) {
-    record.shipping_prices = shippingPrices;
-  }
+  record.shipping_prices = shippingPrices;
 
   return record;
-}
-
-function isMissingShippingPricesColumnError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error ?? '');
-  return /shipping_prices/i.test(message) && /(column|schema cache|does not exist)/i.test(message);
 }
 
 async function writeVariantRecord(
@@ -187,6 +181,7 @@ async function writeVariantRecord(
       throw retryError;
     }
 
+    toast.warning('Per-variant shipping could not be saved. Run the latest database migration.');
     return;
   }
 
@@ -204,6 +199,8 @@ async function writeVariantRecord(
   if (retryError) {
     throw retryError;
   }
+
+  toast.warning('Per-variant shipping could not be saved. Run the latest database migration.');
 }
 
 async function createProductVariants(productId: string, nextVariants: VariantData[]) {
@@ -513,11 +510,10 @@ export function AdminProducts() {
       setPendingImages([]);
       
       // Load existing variants
-      const { data: existingVariants } = await supabase
-        .from('product_variants')
-        .select('*')
-        .eq('product_id', product.id);
-      
+      const existingVariants = await fetchProductVariants(supabase, {
+        productId: product.id,
+      });
+
       if (existingVariants) {
         setVariants(existingVariants.map(v => ({
           id: v.id,

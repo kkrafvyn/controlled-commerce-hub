@@ -13,6 +13,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { STORAGE_KEYS, getStoredItem, removeStoredItems } from '@/lib/brand';
 import { parseShippingPrices } from '@/lib/shipping';
+import { fetchProductVariants } from '@/lib/supabase-variants';
 import { refreshCartItemFromCatalog } from '@/lib/product-adapters';
 import { useProducts } from '@/hooks/useProducts';
 import { CartItem, Product, ProductVariant, ShippingOption } from '@/types';
@@ -162,6 +163,16 @@ function getCartSignature(items: CartItem[]): string {
     .join('|');
 }
 
+function getCartCatalogSignature(items: CartItem[]): string {
+  return mergeCartItems(items)
+    .map((item) => {
+      const shippingPrices = JSON.stringify(item.variant.shipping_prices || {});
+      return `${item.id}:${item.quantity}:${item.variant.price}:${shippingPrices}`;
+    })
+    .sort()
+    .join('|');
+}
+
 function getShippingType(name?: string | null): ShippingOption['type'] {
   const normalized = name?.toLowerCase() || '';
 
@@ -287,7 +298,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
 
   const [
     { data: imagesData, error: imagesError },
-    { data: variantsData, error: variantsError },
+    variantsData,
     { data: shippingRulesData, error: shippingRulesError },
   ] = await Promise.all([
     supabase
@@ -295,11 +306,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
       .select('product_id, image_url, order_index')
       .in('product_id', productIds)
       .order('order_index'),
-    supabase
-      .from('product_variants')
-      .select('*')
-      .in('product_id', productIds)
-      .eq('is_active', true),
+    fetchProductVariants(supabase, { productIds, activeOnly: true }),
     supabase
       .from('product_shipping_rules')
       .select(`
@@ -322,10 +329,6 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
 
   if (imagesError) {
     throw imagesError;
-  }
-
-  if (variantsError) {
-    throw variantsError;
   }
 
   if (shippingRulesError) {
@@ -447,7 +450,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return refreshCartItemFromCatalog(item, catalogProduct);
       });
 
-      return getCartSignature(currentItems) === getCartSignature(refreshedItems)
+      return getCartCatalogSignature(currentItems) === getCartCatalogSignature(refreshedItems)
         ? currentItems
         : refreshedItems;
     });

@@ -45,7 +45,11 @@ export function hasIndividualVariantShipping(
         return price > 0;
       }
 
-      return price.trim() !== '';
+      if (typeof price === 'string') {
+        return price.trim() !== '';
+      }
+
+      return false;
     }),
   );
 }

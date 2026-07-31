@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getSharedProductImages } from '@/lib/product-images';
 import { parseShippingPrices } from '@/lib/shipping';
+import { fetchProductVariants } from '@/lib/supabase-variants';
 
 export interface ProductWithDetails {
   id: string;
@@ -96,12 +97,7 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
   if (imagesError) throw imagesError;
 
   // Fetch variants for all products
-  const { data: variants, error: variantsError } = await supabase
-    .from('product_variants')
-    .select('*')
-    .eq('is_active', true);
-
-  if (variantsError) throw variantsError;
+  const variants = await fetchProductVariants(supabase, { activeOnly: true });
 
   // Fetch shipping rules with shipping classes
   const { data: shippingRules, error: shippingError } = await supabase
@@ -245,11 +241,10 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     .order('order_index');
 
   // Fetch variants
-  const { data: variants } = await supabase
-    .from('product_variants')
-    .select('*')
-    .eq('product_id', id)
-    .eq('is_active', true);
+  const variants = await fetchProductVariants(supabase, {
+    productId: id,
+    activeOnly: true,
+  });
 
   // Fetch shipping rules
   const { data: shippingRules } = await supabase

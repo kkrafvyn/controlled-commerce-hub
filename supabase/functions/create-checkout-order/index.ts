@@ -46,6 +46,45 @@ interface VariantRow {
   shipping_prices: Record<string, number> | null;
 }
 
+function isMissingShippingPricesColumnError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /shipping_prices/i.test(message) && /(column|schema cache|does not exist)/i.test(message);
+}
+
+async function fetchCheckoutVariants(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  productIds: string[],
+): Promise<VariantRow[]> {
+  const fullResult = await supabase
+    .from('product_variants')
+    .select('id, product_id, color, size, price_override, stock, is_active, shipping_prices')
+    .in('product_id', productIds)
+    .eq('is_active', true);
+
+  if (!fullResult.error) {
+    return (fullResult.data || []) as VariantRow[];
+  }
+
+  if (!isMissingShippingPricesColumnError(fullResult.error)) {
+    throw fullResult.error;
+  }
+
+  const fallbackResult = await supabase
+    .from('product_variants')
+    .select('id, product_id, color, size, price_override, stock, is_active')
+    .in('product_id', productIds)
+    .eq('is_active', true);
+
+  if (fallbackResult.error) {
+    throw fallbackResult.error;
+  }
+
+  return ((fallbackResult.data || []) as Omit<VariantRow, 'shipping_prices'>[]).map((variant) => ({
+    ...variant,
+    shipping_prices: {},
+  }));
+}
+
 function resolveServerVariantShippingPrice(
   variant: VariantRow | null | undefined,
   shippingClassId: string,
@@ -352,23 +391,17 @@ Deno.serve(async (req) => {
       ...new Set(items.map((item) => item.productVariantId).filter((id): id is string => !!id)),
     ];
 
-    const [{ data: products, error: productsError }, { data: allActiveVariants, error: variantsError }] =
-      await Promise.all([
+    const [{ data: products, error: productsError }, allActiveVariants] = await Promise.all([
         supabase
           .from('products')
           .select(
             'id, name, base_price, is_active, is_free_shipping, is_fragile, reinforced_packaging_cost, allow_standard_packaging, allow_reinforced_packaging',
           )
           .in('id', productIds),
-        supabase
-          .from('product_variants')
-          .select('id, product_id, color, size, price_override, stock, is_active, shipping_prices')
-          .in('product_id', productIds)
-          .eq('is_active', true),
+        fetchCheckoutVariants(supabase, productIds),
       ]);
 
     if (productsError) throw productsError;
-    if (variantsError) throw variantsError;
 
     const productsById = new Map<string, ProductRow>();
     for (const product of (products || []) as ProductRow[]) {

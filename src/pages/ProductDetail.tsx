@@ -524,11 +524,21 @@ export default function ProductDetail() {
 
     const productShippingPrice = Number(option.price || 0);
     const shippingClassId = option.shipping_class_id;
-    const activeVariant = selectedVariants[0] || mobileActiveVariant;
 
-    if (activeVariant) {
+    if (selectedVariants.length > 0) {
+      return selectedVariants.reduce((sum, variant) => {
+        const unitShipping = resolveVariantShippingPrice(
+          variant.shipping_prices,
+          shippingClassId,
+          productShippingPrice,
+        );
+        return sum + unitShipping * variant.quantity;
+      }, 0);
+    }
+
+    if (mobileActiveVariant) {
       return resolveVariantShippingPrice(
-        activeVariant.shipping_prices,
+        mobileActiveVariant.shipping_prices,
         shippingClassId,
         productShippingPrice,
       );

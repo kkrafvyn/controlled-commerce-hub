@@ -51,5 +51,11 @@ describe('shipping helpers', () => {
       ]),
     ).toBe(true);
     expect(hasIndividualVariantShipping([{ shipping_prices: {} }])).toBe(false);
+    expect(
+      hasIndividualVariantShipping([{ shipping_prices: { 'class-1': 12 } }]),
+    ).toBe(true);
+    expect(
+      hasIndividualVariantShipping([{ shipping_prices: { 'class-1': 0 } }]),
+    ).toBe(false);
   });
 });
