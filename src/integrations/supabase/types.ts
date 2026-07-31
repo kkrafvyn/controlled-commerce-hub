@@ -1142,6 +1142,7 @@ export type Database = {
           is_active: boolean | null
           price_override: number | null
           product_id: string
+          shipping_prices: Json
           size: string | null
           sku: string | null
           stock: number | null
@@ -1155,6 +1156,7 @@ export type Database = {
           is_active?: boolean | null
           price_override?: number | null
           product_id: string
+          shipping_prices?: Json
           size?: string | null
           sku?: string | null
           stock?: number | null
@@ -1168,6 +1170,7 @@ export type Database = {
           is_active?: boolean | null
           price_override?: number | null
           product_id?: string
+          shipping_prices?: Json
           size?: string | null
           sku?: string | null
           stock?: number | null

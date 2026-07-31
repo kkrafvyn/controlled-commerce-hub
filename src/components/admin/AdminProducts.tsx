@@ -36,6 +36,7 @@ import { ProductImageUpload, uploadProductImages } from './ProductImageUpload';
 import { ProductVariantsManager, VariantData } from './ProductVariantsManager';
 import { ProductShippingRules, ShippingRuleData } from './ProductShippingRules';
 import { productSchema, validateForm } from '@/lib/validations/admin';
+import { formatShippingPricesForForm, serializeShippingPrices } from '@/lib/shipping';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
 import { invalidateProductCatalogQueries } from '@/hooks/useProductCatalogSync';
@@ -133,6 +134,7 @@ async function buildVariantRecord(productId: string, variant: VariantData): Prom
     size: variant.size || null,
     color: variant.color || null,
     price_override: variant.price_override ? parseFloat(variant.price_override) : null,
+    shipping_prices: serializeShippingPrices(variant.shipping_prices),
     stock: parseInt(variant.stock, 10) || 0,
     sku: variant.sku || null,
     variant_image_url: variant.image_file
@@ -477,6 +479,9 @@ export function AdminProducts() {
           size: v.size || '',
           color: v.color || '',
           price_override: v.price_override ? String(v.price_override) : '',
+          shipping_prices: formatShippingPricesForForm(
+            v.shipping_prices as Record<string, number> | null | undefined,
+          ),
           stock: String(v.stock || 0),
           sku: v.sku || '',
           image_url: v.variant_image_url || null,
@@ -854,6 +859,8 @@ export function AdminProducts() {
                 <ProductShippingRules
                   rules={shippingRules}
                   onRulesChange={setShippingRules}
+                  variants={variants}
+                  onVariantsChange={setVariants}
                 />
               </div>
 

@@ -7,14 +7,14 @@ import {
 } from '@/lib/backgroundRefresh';
 
 describe('background refresh helpers', () => {
-  it('does not refresh when away for less than five minutes', () => {
+  it('does not refresh when away for less than ten minutes', () => {
     const hiddenAt = 1_000_000;
     const now = hiddenAt + APP_BACKGROUND_REFRESH_MS - 1;
 
     expect(shouldRefreshAfterBackground(hiddenAt, now)).toBe(false);
   });
 
-  it('refreshes when away for at least five minutes', () => {
+  it('refreshes when away for at least ten minutes', () => {
     const hiddenAt = 1_000_000;
     const now = hiddenAt + APP_BACKGROUND_REFRESH_MS;
 

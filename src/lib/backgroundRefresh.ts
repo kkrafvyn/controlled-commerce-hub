@@ -1,5 +1,5 @@
 /** Minimum time away before background return triggers a data refresh. */
-export const APP_BACKGROUND_REFRESH_MS = 5 * 60 * 1000;
+export const APP_BACKGROUND_REFRESH_MS = 10 * 60 * 1000;
 
 export function shouldRefreshAfterBackground(
   hiddenAt: number | null,

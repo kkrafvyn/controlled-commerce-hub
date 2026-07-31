@@ -1,17 +1,21 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+
+type VariantPricingMode = 'same' | 'individual';
 
 export interface VariantData {
   id?: string;
   size: string;
   color: string;
   price_override: string;
+  shipping_prices: Record<string, string>;
   stock: string;
   sku: string;
   image_url?: string | null;
@@ -31,12 +35,14 @@ interface DraftCombination {
   sizeIndex: number;
   combinationIndex: number;
   stock: string;
+  price: string;
 }
 
 const defaultVariant: VariantData = {
   size: '',
   color: '',
   price_override: '',
+  shipping_prices: {},
   stock: '0',
   sku: '',
   image_url: null,
@@ -59,6 +65,32 @@ function splitStockValues(value: string) {
   }
 
   return values;
+}
+
+function splitCommaSeparatedValues(value: string) {
+  const values = value.split(',').map((entry) => entry.trim());
+
+  if (values.length === 1 && values[0] === '') {
+    return [];
+  }
+
+  return values;
+}
+
+function getValueForCombination(
+  values: string[],
+  sizeIndex: number,
+  combinationIndex: number,
+  sizeCount: number,
+  fallback = '',
+) {
+  if (values.length === 0) return fallback;
+  if (values.length > sizeCount) return values[combinationIndex] ?? values[0] ?? fallback;
+  return values[sizeIndex] ?? values[0] ?? fallback;
+}
+
+function inferPricingMode(variants: VariantData[]): VariantPricingMode {
+  return variants.some((variant) => variant.price_override.trim()) ? 'individual' : 'same';
 }
 
 function buildVariantKey(variant: VariantData) {
@@ -84,10 +116,11 @@ function getStockForCombination(
   return stockValues[sizeIndex] ?? stockValues[0] ?? '0';
 }
 
-function buildVariantCombinations(variant: VariantData) {
+function buildVariantCombinations(variant: VariantData, pricingMode: VariantPricingMode) {
   const sizes = splitCommaValues(variant.size);
   const colors = splitCommaValues(variant.color);
   const stockValues = splitStockValues(variant.stock);
+  const priceValues = splitCommaSeparatedValues(variant.price_override);
   const sizeValues = sizes.length > 0 ? sizes : [''];
   const colorValues = colors.length > 0 ? colors : [''];
   const combinations = colorValues.flatMap((color) =>
@@ -104,6 +137,10 @@ function buildVariantCombinations(variant: VariantData) {
       color,
       size,
       stock: getStockForCombination(stockValues, sizeIndex, index, sizeValues.length),
+      price_override:
+        pricingMode === 'individual'
+          ? getValueForCombination(priceValues, sizeIndex, index, sizeValues.length)
+          : '',
       sku:
         variant.sku.trim() && totalCombinations > 1
           ? `${variant.sku.trim()}-${skuSuffix}`
@@ -112,7 +149,10 @@ function buildVariantCombinations(variant: VariantData) {
   });
 }
 
-function buildDraftCombinations(variant: VariantData): DraftCombination[] {
+function buildDraftCombinations(
+  variant: VariantData,
+  pricingMode: VariantPricingMode,
+): DraftCombination[] {
   if (!variant.color.trim() && !variant.size.trim()) {
     return [];
   }
@@ -120,6 +160,7 @@ function buildDraftCombinations(variant: VariantData): DraftCombination[] {
   const sizes = splitCommaValues(variant.size);
   const colors = splitCommaValues(variant.color);
   const stockValues = splitStockValues(variant.stock);
+  const priceValues = splitCommaSeparatedValues(variant.price_override);
   const sizeValues = sizes.length > 0 ? sizes : [''];
   const colorValues = colors.length > 0 ? colors : [''];
   const combinations = colorValues.flatMap((color) =>
@@ -130,6 +171,10 @@ function buildDraftCombinations(variant: VariantData): DraftCombination[] {
     ...combination,
     combinationIndex: index,
     stock: getStockForCombination(stockValues, combination.sizeIndex, index, sizeValues.length),
+    price:
+      pricingMode === 'individual'
+        ? getValueForCombination(priceValues, combination.sizeIndex, index, sizeValues.length)
+        : '',
   }));
 }
 
@@ -146,6 +191,10 @@ function mergeGeneratedVariant(existing: VariantData, generated: VariantData) {
     size: generated.size,
     stock: generated.stock,
     price_override: generated.price_override.trim() ? generated.price_override : existing.price_override,
+    shipping_prices:
+      Object.keys(generated.shipping_prices || {}).length > 0
+        ? generated.shipping_prices
+        : existing.shipping_prices,
     sku: generated.sku.trim() ? generated.sku : existing.sku,
     image_file: generated.image_file || existing.image_file,
     image_preview_url: generated.image_preview_url || existing.image_preview_url,
@@ -157,11 +206,18 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
   const [showForm, setShowForm] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [currentVariant, setCurrentVariant] = useState<VariantData>(defaultVariant);
+  const [pricingMode, setPricingMode] = useState<VariantPricingMode>(() => inferPricingMode(variants));
   const variantImageInputRef = useRef<HTMLInputElement>(null);
   const draftCombinations = useMemo(
-    () => buildDraftCombinations(currentVariant),
-    [currentVariant],
+    () => buildDraftCombinations(currentVariant, pricingMode),
+    [currentVariant, pricingMode],
   );
+
+  useEffect(() => {
+    if (inferPricingMode(variants) === 'individual') {
+      setPricingMode('individual');
+    }
+  }, [variants]);
 
   const handleDraftStockChange = (combinationIndex: number, stock: string) => {
     const nextStockValues = draftCombinations.map((combination) =>
@@ -174,12 +230,40 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
     }));
   };
 
+  const handleDraftPriceChange = (combinationIndex: number, price: string) => {
+    const nextPriceValues = draftCombinations.map((combination) =>
+      combination.combinationIndex === combinationIndex ? price : combination.price,
+    );
+
+    setCurrentVariant((prev) => ({
+      ...prev,
+      price_override: nextPriceValues.join(', '),
+    }));
+  };
+
+  const handlePricingModeChange = (mode: VariantPricingMode) => {
+    setPricingMode(mode);
+
+    if (mode === 'same') {
+      onVariantsChange(variants.map((variant) => ({ ...variant, price_override: '' })));
+      setCurrentVariant((prev) => ({ ...prev, price_override: '' }));
+    }
+  };
+
+  const handleInlinePriceChange = (index: number, price: string) => {
+    onVariantsChange(
+      variants.map((variant, variantIndex) =>
+        variantIndex === index ? { ...variant, price_override: price } : variant,
+      ),
+    );
+  };
+
   const handleAddVariant = () => {
     if (!currentVariant.size && !currentVariant.color) {
       return;
     }
 
-    const generatedVariants = buildVariantCombinations(currentVariant);
+    const generatedVariants = buildVariantCombinations(currentVariant, pricingMode);
     const baseVariants = editingIndex !== null
       ? variants.filter((_, index) => index !== editingIndex)
       : [...variants];
@@ -314,6 +398,45 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
         )}
       </div>
 
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+        <div className="space-y-1">
+          <Label>Variant Pricing</Label>
+          <p className="text-xs text-muted-foreground">
+            Use individual prices when variants have different shipping costs or selling prices.
+          </p>
+        </div>
+        <RadioGroup
+          value={pricingMode}
+          onValueChange={(value) => handlePricingModeChange(value as VariantPricingMode)}
+          className="grid gap-2 sm:grid-cols-2"
+        >
+          <label
+            htmlFor="variant-pricing-same"
+            className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-background p-3"
+          >
+            <RadioGroupItem value="same" id="variant-pricing-same" className="mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">One price for all</p>
+              <p className="text-xs text-muted-foreground">
+                Every variant uses the product base price.
+              </p>
+            </div>
+          </label>
+          <label
+            htmlFor="variant-pricing-individual"
+            className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-background p-3"
+          >
+            <RadioGroupItem value="individual" id="variant-pricing-individual" className="mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">Different price per variant</p>
+              <p className="text-xs text-muted-foreground">
+                Set a custom price for each color/size combination.
+              </p>
+            </div>
+          </label>
+        </RadioGroup>
+      </div>
+
       {showForm && (
         <Card className="border-primary/50">
           <CardContent className="pt-4 space-y-4">
@@ -357,17 +480,29 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   Match the size order, enter one number for all, or use the stock boxes below.
                 </p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="variant-price">Price Override</Label>
-                <Input
-                  id="variant-price"
-                  type="number"
-                  step="0.01"
-                  value={currentVariant.price_override}
-                  onChange={(e) => setCurrentVariant({ ...currentVariant, price_override: e.target.value })}
-                  placeholder="Leave empty for base"
-                />
-              </div>
+              {pricingMode === 'individual' && draftCombinations.length <= 1 ? (
+                <div className="space-y-2">
+                  <Label htmlFor="variant-price">Variant Price</Label>
+                  <Input
+                    id="variant-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={currentVariant.price_override}
+                    onChange={(e) => setCurrentVariant({ ...currentVariant, price_override: e.target.value })}
+                    placeholder={basePrice || '0.00'}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Variant Price</Label>
+                  <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                    {pricingMode === 'same'
+                      ? `All variants use the base price${basePrice ? ` (${basePrice})` : ''}.`
+                      : 'Set a price for each size in the inventory rows below.'}
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="variant-sku">SKU Prefix</Label>
                 <Input
@@ -443,7 +578,11 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   {draftCombinations.map((combination) => (
                     <div
                       key={`${combination.color}-${combination.size}-${combination.combinationIndex}`}
-                      className="grid grid-cols-[minmax(0,1fr)_minmax(6.75rem,8rem)] items-end gap-3 rounded-md border border-border bg-background p-3"
+                      className={`grid items-end gap-3 rounded-md border border-border bg-background p-3 ${
+                        pricingMode === 'individual'
+                          ? 'grid-cols-[minmax(0,1fr)_minmax(6.75rem,8rem)_minmax(6.75rem,8rem)]'
+                          : 'grid-cols-[minmax(0,1fr)_minmax(6.75rem,8rem)]'
+                      }`}
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">
@@ -453,6 +592,28 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                           Size: {combination.size || 'Default size'}
                         </p>
                       </div>
+                      {pricingMode === 'individual' ? (
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor={`variant-price-${combination.combinationIndex}`}
+                            className="text-xs"
+                          >
+                            Price
+                          </Label>
+                          <Input
+                            id={`variant-price-${combination.combinationIndex}`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={combination.price}
+                            className="h-11"
+                            placeholder={basePrice || '0.00'}
+                            onChange={(event) =>
+                              handleDraftPriceChange(combination.combinationIndex, event.target.value)
+                            }
+                          />
+                        </div>
+                      ) : null}
                       <div className="space-y-1">
                         <Label
                           htmlFor={`variant-stock-${combination.combinationIndex}`}
@@ -538,10 +699,30 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                           {parseStock(variant.stock)} in stock
                         </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        ${getVariantDisplayPrice(variant).toFixed(2)}
-                        {variant.sku ? ` - SKU: ${variant.sku}` : ''}
-                      </p>
+                      {pricingMode === 'individual' ? (
+                        <div className="mt-2 flex items-center gap-2">
+                          <Label htmlFor={`variant-inline-price-${index}`} className="text-xs text-muted-foreground">
+                            Price
+                          </Label>
+                          <Input
+                            id={`variant-inline-price-${index}`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={variant.price_override}
+                            placeholder={basePrice || '0.00'}
+                            className="h-8 w-28"
+                            onChange={(event) => handleInlinePriceChange(index, event.target.value)}
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          ${getVariantDisplayPrice(variant).toFixed(2)}
+                        </p>
+                      )}
+                      {variant.sku ? (
+                        <p className="mt-1 text-xs text-muted-foreground">SKU: {variant.sku}</p>
+                      ) : null}
                     </div>
                     </div>
                     <div className="flex items-center gap-1">

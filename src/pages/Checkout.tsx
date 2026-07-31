@@ -28,6 +28,7 @@ import { getErrorMessage, getSupabaseFunctionErrorMessage } from '@/lib/errors';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 import { toMoney } from '@/lib/money';
+import { resolveVariantShippingPrice } from '@/lib/shipping';
 import {
   getCouponDiscountAmount,
   getCouponIneligibilityMessage,
@@ -296,58 +297,65 @@ export default function Checkout() {
       return;
     }
 
-    const shippingClassCounts = new Map<string, { count: number; data: ShippingClass; totalPrice: number }>();
+    const shippingClassCounts = new Map<
+      string,
+      { totalPrice: number; coveredProducts: Set<string>; data: ShippingClass }
+    >();
 
     (shippingRules as ShippingRuleRow[] | null)?.forEach((rule) => {
       const sc = rule.shipping_classes;
       if (!sc || !sc.is_active) return;
-      const productQuantity = selectedItems
-        .filter((item) => item.product.id === rule.product_id)
-        .reduce((sum, item) => sum + item.quantity, 0);
-      const unitShippingPrice = Number(rule.price ?? sc.base_price ?? 0);
 
-      const productIsFreeShipping =
-        productMeta[rule.product_id]?.is_free_shipping ||
-        selectedItems.some((item) =>
-          item.product.id === rule.product_id && item.product.isFreeShippingEligible
+      const productUnitShippingPrice = Number(rule.price ?? sc.base_price ?? 0);
+      const matchingItems = selectedItems.filter((item) => item.product.id === rule.product_id);
+
+      matchingItems.forEach((item) => {
+        const productIsFreeShipping =
+          productMeta[rule.product_id]?.is_free_shipping ||
+          item.product.isFreeShippingEligible;
+        const unitShippingPrice = resolveVariantShippingPrice(
+          item.variant.shipping_prices,
+          sc.id,
+          productUnitShippingPrice,
         );
-      const productShippingTotal = productIsFreeShipping ? 0 : unitShippingPrice * productQuantity;
+        const lineShippingTotal = productIsFreeShipping ? 0 : unitShippingPrice * item.quantity;
 
-      const existing = shippingClassCounts.get(sc.id);
-      if (existing) {
-        existing.count++;
-        existing.totalPrice += productShippingTotal;
-        existing.data.product_prices[rule.product_id] = unitShippingPrice;
-      } else {
-        shippingClassCounts.set(sc.id, {
-          count: 1,
-          totalPrice: productShippingTotal,
-          data: {
-            id: sc.id,
-            name: sc.name,
-            base_price: Number(sc.base_price || 0),
-            description: sc.description,
-            estimated_days_min: sc.estimated_days_min,
-            estimated_days_max: sc.estimated_days_max,
-            product_prices: {
-              [rule.product_id]: unitShippingPrice,
+        let existing = shippingClassCounts.get(sc.id);
+        if (!existing) {
+          existing = {
+            totalPrice: 0,
+            coveredProducts: new Set<string>(),
+            data: {
+              id: sc.id,
+              name: sc.name,
+              base_price: Number(sc.base_price || 0),
+              description: sc.description,
+              estimated_days_min: sc.estimated_days_min,
+              estimated_days_max: sc.estimated_days_max,
+              product_prices: {},
+              shipping_type: sc.shipping_types ? {
+                id: sc.shipping_types.id,
+                name: sc.shipping_types.name,
+                description: sc.shipping_types.description,
+              } : { id: '', name: '', description: null },
             },
-            shipping_type: sc.shipping_types ? {
-              id: sc.shipping_types.id,
-              name: sc.shipping_types.name,
-              description: sc.shipping_types.description,
-            } : { id: '', name: '', description: null }
-          }
-        });
-      }
+          };
+          shippingClassCounts.set(sc.id, existing);
+        }
+
+        existing.totalPrice += lineShippingTotal;
+        existing.coveredProducts.add(rule.product_id);
+        existing.data.product_prices[rule.product_id] = unitShippingPrice;
+      });
     });
 
     const validClasses: ShippingClass[] = [];
     shippingClassCounts.forEach((value) => {
-      if (value.count >= cartProductIds.length) {
+      const allProductsCovered = cartProductIds.every((productId) => value.coveredProducts.has(productId));
+      if (allProductsCovered) {
         validClasses.push({
           ...value.data,
-          base_price: value.totalPrice
+          base_price: value.totalPrice,
         });
       }
     });

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2, Ship, Plane, Package, Settings, AlertCircle } from 'lucide-react';
+import {
+  buildVariantLabel,
+  hasIndividualVariantShipping,
+} from '@/lib/shipping';
+import type { VariantData } from './ProductVariantsManager';
 
 export interface ShippingRuleData {
   shipping_class_id: string;
@@ -15,9 +21,13 @@ export interface ShippingRuleData {
   is_allowed: boolean;
 }
 
+type ShippingPricingMode = 'same' | 'individual';
+
 interface ProductShippingRulesProps {
   rules: ShippingRuleData[];
   onRulesChange: (rules: ShippingRuleData[]) => void;
+  variants: VariantData[];
+  onVariantsChange: (variants: VariantData[]) => void;
 }
 
 type ShippingTypeRow = Database['public']['Tables']['shipping_types']['Row'];
@@ -32,7 +42,20 @@ type ShippingClassWithType = {
   shipping_types: Pick<ShippingTypeRow, 'id' | 'name' | 'description'> | null;
 };
 
-export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRulesProps) {
+function inferShippingPricingMode(variants: VariantData[]): ShippingPricingMode {
+  return hasIndividualVariantShipping(variants) ? 'individual' : 'same';
+}
+
+export function ProductShippingRules({
+  rules,
+  onRulesChange,
+  variants,
+  onVariantsChange,
+}: ProductShippingRulesProps) {
+  const [pricingMode, setPricingMode] = useState<ShippingPricingMode>(() =>
+    inferShippingPricingMode(variants),
+  );
+
   const { data: shippingClasses, isLoading } = useQuery({
     queryKey: ['shipping-classes-for-products'],
     queryFn: async (): Promise<ShippingClassWithType[]> => {
@@ -51,6 +74,12 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
   });
 
   useEffect(() => {
+    if (inferShippingPricingMode(variants) === 'individual') {
+      setPricingMode('individual');
+    }
+  }, [variants]);
+
+  useEffect(() => {
     if (shippingClasses && rules.length === 0) {
       const initialRules = shippingClasses.map((shippingClass) => ({
         shipping_class_id: shippingClass.id,
@@ -61,6 +90,14 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
       onRulesChange(initialRules);
     }
   }, [shippingClasses, rules.length, onRulesChange]);
+
+  const handlePricingModeChange = (mode: ShippingPricingMode) => {
+    setPricingMode(mode);
+
+    if (mode === 'same') {
+      onVariantsChange(variants.map((variant) => ({ ...variant, shipping_prices: {} })));
+    }
+  };
 
   const handleRuleChange = (
     classId: string,
@@ -87,6 +124,28 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
     onRulesChange(updatedRules);
   };
 
+  const handleVariantShippingChange = (
+    variantIndex: number,
+    shippingClassId: string,
+    price: string,
+  ) => {
+    onVariantsChange(
+      variants.map((variant, index) => {
+        if (index !== variantIndex) {
+          return variant;
+        }
+
+        return {
+          ...variant,
+          shipping_prices: {
+            ...variant.shipping_prices,
+            [shippingClassId]: price,
+          },
+        };
+      }),
+    );
+  };
+
   const getRuleValue = (classId: string, field: 'price' | 'is_allowed') => {
     const rule = rules.find((item) => item.shipping_class_id === classId);
     if (rule) {
@@ -95,6 +154,10 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
 
     const shippingClass = shippingClasses?.find((item) => item.id === classId);
     return field === 'price' ? String(shippingClass?.base_price || 0) : true;
+  };
+
+  const getVariantShippingValue = (variant: VariantData, shippingClassId: string, fallback: string) => {
+    return variant.shipping_prices?.[shippingClassId] ?? fallback;
   };
 
   const getShippingIcon = (name: string) => {
@@ -144,69 +207,162 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
         Set custom shipping prices for this product or disable specific shipping methods.
       </p>
 
-      <div className="space-y-3">
-        {shippingClasses.map((shippingClass) => (
-          <div
-            key={shippingClass.id}
-            className="flex items-center gap-4 rounded-lg border border-border bg-muted/30 p-3"
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+        <div className="space-y-1">
+          <Label>Shipping Pricing</Label>
+          <p className="text-xs text-muted-foreground">
+            Use individual shipping when variants have different delivery costs.
+          </p>
+        </div>
+        <RadioGroup
+          value={pricingMode}
+          onValueChange={(value) => handlePricingModeChange(value as ShippingPricingMode)}
+          className="grid gap-2 sm:grid-cols-2"
+        >
+          <label
+            htmlFor="shipping-pricing-same"
+            className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-background p-3"
           >
-            <div className="flex flex-1 items-center gap-2">
-              <div className="rounded bg-primary/10 p-2 text-primary">
-                {getShippingIcon(shippingClass.shipping_types?.name || '')}
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">{shippingClass.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {shippingClass.shipping_types?.name || 'Unknown type'} -{' '}
-                  {shippingClass.estimated_days_min}-{shippingClass.estimated_days_max} days
-                </p>
-                {(shippingClass.description || shippingClass.shipping_types?.description) && (
-                  <p className="text-xs text-muted-foreground">
-                    {shippingClass.description || shippingClass.shipping_types?.description}
-                  </p>
-                )}
-              </div>
+            <RadioGroupItem value="same" id="shipping-pricing-same" className="mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">One shipping fee for all</p>
+              <p className="text-xs text-muted-foreground">
+                Every variant uses the same shipping price below.
+              </p>
             </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Label
-                  htmlFor={`price-${shippingClass.id}`}
-                  className="text-xs text-muted-foreground"
-                >
-                  Price
-                </Label>
-                <Input
-                  id={`price-${shippingClass.id}`}
-                  type="number"
-                  step="0.01"
-                  className="h-8 w-24 text-sm"
-                  value={getRuleValue(shippingClass.id, 'price') as string}
-                  onChange={(event) =>
-                    handleRuleChange(shippingClass.id, 'price', event.target.value)
-                  }
-                  disabled={!(getRuleValue(shippingClass.id, 'is_allowed') as boolean)}
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Label
-                  htmlFor={`allowed-${shippingClass.id}`}
-                  className="text-xs text-muted-foreground"
-                >
-                  Enabled
-                </Label>
-                <Switch
-                  id={`allowed-${shippingClass.id}`}
-                  checked={getRuleValue(shippingClass.id, 'is_allowed') as boolean}
-                  onCheckedChange={(checked) =>
-                    handleRuleChange(shippingClass.id, 'is_allowed', checked)
-                  }
-                />
-              </div>
+          </label>
+          <label
+            htmlFor="shipping-pricing-individual"
+            className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-background p-3"
+          >
+            <RadioGroupItem value="individual" id="shipping-pricing-individual" className="mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">Different shipping per variant</p>
+              <p className="text-xs text-muted-foreground">
+                Set a custom shipping fee for each variant option.
+              </p>
             </div>
-          </div>
-        ))}
+          </label>
+        </RadioGroup>
+      </div>
+
+      {pricingMode === 'individual' && variants.length === 0 ? (
+        <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
+          Add product variants above to set individual shipping fees.
+        </p>
+      ) : null}
+
+      <div className="space-y-3">
+        {shippingClasses.map((shippingClass) => {
+          const isAllowed = getRuleValue(shippingClass.id, 'is_allowed') as boolean;
+          const productShippingPrice = getRuleValue(shippingClass.id, 'price') as string;
+
+          return (
+            <div
+              key={shippingClass.id}
+              className="space-y-3 rounded-lg border border-border bg-muted/30 p-3"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex flex-1 items-center gap-2">
+                  <div className="rounded bg-primary/10 p-2 text-primary">
+                    {getShippingIcon(shippingClass.shipping_types?.name || '')}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{shippingClass.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {shippingClass.shipping_types?.name || 'Unknown type'} -{' '}
+                      {shippingClass.estimated_days_min}-{shippingClass.estimated_days_max} days
+                    </p>
+                    {(shippingClass.description || shippingClass.shipping_types?.description) && (
+                      <p className="text-xs text-muted-foreground">
+                        {shippingClass.description || shippingClass.shipping_types?.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {pricingMode === 'same' ? (
+                    <div className="flex items-center gap-2">
+                      <Label
+                        htmlFor={`price-${shippingClass.id}`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        Price
+                      </Label>
+                      <Input
+                        id={`price-${shippingClass.id}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="h-8 w-24 text-sm"
+                        value={productShippingPrice}
+                        onChange={(event) =>
+                          handleRuleChange(shippingClass.id, 'price', event.target.value)
+                        }
+                        disabled={!isAllowed}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center gap-2">
+                    <Label
+                      htmlFor={`allowed-${shippingClass.id}`}
+                      className="text-xs text-muted-foreground"
+                    >
+                      Enabled
+                    </Label>
+                    <Switch
+                      id={`allowed-${shippingClass.id}`}
+                      checked={isAllowed}
+                      onCheckedChange={(checked) =>
+                        handleRuleChange(shippingClass.id, 'is_allowed', checked)
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {pricingMode === 'individual' && isAllowed && variants.length > 0 ? (
+                <div className="space-y-2 rounded-md border border-border bg-background p-3">
+                  <p className="text-xs font-medium text-foreground">Per-variant shipping</p>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {variants.map((variant, variantIndex) => (
+                      <div
+                        key={`${variant.id || variantIndex}-${shippingClass.id}`}
+                        className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm text-foreground">
+                            {buildVariantLabel(variant.color, variant.size)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Default: {productShippingPrice || '0'}
+                          </p>
+                        </div>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="h-8 w-24 text-sm"
+                          value={getVariantShippingValue(variant, shippingClass.id, productShippingPrice)}
+                          placeholder={productShippingPrice || '0'}
+                          onChange={(event) =>
+                            handleVariantShippingChange(
+                              variantIndex,
+                              shippingClass.id,
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

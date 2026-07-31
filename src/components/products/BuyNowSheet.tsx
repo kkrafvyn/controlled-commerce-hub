@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
+import { resolveVariantShippingPrice } from '@/lib/shipping';
 import {
   CheckoutSavingsCard,
   CheckoutSavingsDialog,
@@ -227,9 +227,25 @@ export function BuyNowSheet({
   }, [hasSelectedVariantChoices, product.base_price, product.images, quantity, selectedVariant, selectedVariants]);
   const subtotal = checkoutSelections.reduce((sum, item) => sum + item.lineTotal, 0);
   const totalQuantity = checkoutSelections.reduce((sum, item) => sum + item.quantity, 0);
-  const shippingUnitCost =
-    product.is_free_shipping || !resolvedShippingRule ? 0 : Number(resolvedShippingRule.price || 0);
-  const effectiveShippingCost = shippingUnitCost * Math.max(1, totalQuantity);
+  const effectiveShippingCost = useMemo(() => {
+    if (product.is_free_shipping || !resolvedShippingRule) {
+      return 0;
+    }
+
+    const shippingClassId = resolvedShippingRule.shipping_class_id;
+    const productShippingPrice = Number(resolvedShippingRule.price || 0);
+
+    return checkoutSelections.reduce((sum, selection) => {
+      const variant = product.variants.find((item) => item.id === selection.variantId);
+      const unitShipping = resolveVariantShippingPrice(
+        variant?.shipping_prices,
+        shippingClassId,
+        productShippingPrice,
+      );
+
+      return sum + unitShipping * selection.quantity;
+    }, 0);
+  }, [checkoutSelections, product.is_free_shipping, product.variants, resolvedShippingRule]);
   const checkoutShippingCost =
     deferShippingPayment && deferShippingPaymentEnabled ? 0 : effectiveShippingCost;
   const showDeferShippingOption =

@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { STORAGE_KEYS, getStoredItem, removeStoredItems } from '@/lib/brand';
+import { parseShippingPrices } from '@/lib/shipping';
 import { CartItem, Product, ProductVariant, ShippingOption } from '@/types';
 
 type CartSyncState = 'local' | 'syncing' | 'synced' | 'error';
@@ -64,7 +65,7 @@ type CartProductRow = Pick<
 
 type CartVariantRow = Pick<
   Database['public']['Tables']['product_variants']['Row'],
-  'id' | 'product_id' | 'size' | 'color' | 'price_override' | 'stock' | 'variant_image_url'
+  'id' | 'product_id' | 'size' | 'color' | 'price_override' | 'stock' | 'variant_image_url' | 'shipping_prices'
 > & {
   product: CartProductRow | null;
 };
@@ -191,6 +192,7 @@ function buildCartProduct(
           : Number(product.base_price),
       stock: variant.stock || 0,
       image_url: variant.variant_image_url || null,
+      shipping_prices: parseShippingPrices(variant.shipping_prices),
     })),
     shippingOptions: shippingRules
       .filter((rule) => rule.is_allowed && rule.shipping_classes)
@@ -233,6 +235,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
         price_override,
         stock,
         variant_image_url,
+        shipping_prices,
         product:products!product_variants_product_id_fkey(
           id,
           name,
@@ -294,7 +297,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
       .order('order_index'),
     supabase
       .from('product_variants')
-      .select('id, product_id, size, color, price_override, stock, variant_image_url')
+      .select('id, product_id, size, color, price_override, stock, variant_image_url, shipping_prices')
       .in('product_id', productIds)
       .eq('is_active', true),
     supabase
@@ -370,6 +373,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
           : Number(product.base_price),
       stock: variant.stock || 0,
       image_url: variant.variant_image_url || null,
+      shipping_prices: parseShippingPrices(variant.shipping_prices),
     };
 
     return [

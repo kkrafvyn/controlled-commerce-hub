@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getSharedProductImages } from '@/lib/product-images';
+import { parseShippingPrices } from '@/lib/shipping';
 
 export interface ProductWithDetails {
   id: string;
@@ -36,6 +37,7 @@ export interface ProductWithDetails {
     stock: number | null;
     sku: string | null;
     image_url: string | null;
+    shipping_prices: Record<string, number>;
   }[];
   shipping_rules: {
     id: string;
@@ -164,6 +166,7 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
       stock: v.stock,
       sku: v.sku,
       image_url: v.variant_image_url,
+      shipping_prices: parseShippingPrices(v.shipping_prices),
     }));
 
     return {
@@ -279,6 +282,7 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     stock: v.stock,
     sku: v.sku,
     image_url: v.variant_image_url,
+    shipping_prices: parseShippingPrices(v.shipping_prices),
   }));
   const rawImages = (images || []).map((img) => img.image_url);
 

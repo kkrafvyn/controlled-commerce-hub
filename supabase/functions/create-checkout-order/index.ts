@@ -43,6 +43,20 @@ interface VariantRow {
   price_override: number | null;
   stock: number | null;
   is_active: boolean | null;
+  shipping_prices: Record<string, number> | null;
+}
+
+function resolveServerVariantShippingPrice(
+  variant: VariantRow | null | undefined,
+  shippingClassId: string,
+  productShippingPrice: number,
+): number {
+  const override = variant?.shipping_prices?.[shippingClassId];
+  if (override != null && Number.isFinite(Number(override))) {
+    return Number(override);
+  }
+
+  return productShippingPrice;
 }
 
 interface CouponRow {
@@ -348,7 +362,7 @@ Deno.serve(async (req) => {
           .in('id', productIds),
         supabase
           .from('product_variants')
-          .select('id, product_id, color, size, price_override, stock, is_active')
+          .select('id, product_id, color, size, price_override, stock, is_active, shipping_prices')
           .in('product_id', productIds)
           .eq('is_active', true),
       ]);
@@ -462,17 +476,25 @@ Deno.serve(async (req) => {
         shippingClass = row.shipping_classes;
       }
 
-      for (const productId of productIds) {
-        const product = productsById.get(productId)!;
-        const rule = ruleByProduct.get(productId);
+      for (const item of items) {
+        const product = productsById.get(item.productId);
+        if (!product) {
+          continue;
+        }
+
+        const rule = ruleByProduct.get(item.productId);
         if (!rule) {
           throw new Error('The selected shipping method is not available for all selected products.');
         }
 
         if (product.is_free_shipping) continue;
-        const quantity = quantitiesByProduct.get(productId) || 0;
-        const unitShipping = toMoney(rule.price ?? rule.shipping_classes?.base_price ?? 0);
-        shippingPrice = toMoney(shippingPrice + unitShipping * quantity);
+
+        const variant = item.productVariantId ? variantsById.get(item.productVariantId) || null : null;
+        const productUnitShipping = toMoney(rule.price ?? rule.shipping_classes?.base_price ?? 0);
+        const unitShipping = toMoney(
+          resolveServerVariantShippingPrice(variant, shippingClassId, productUnitShipping),
+        );
+        shippingPrice = toMoney(shippingPrice + unitShipping * item.quantity);
       }
     } else if (flow === 'cart') {
       throw new Error('Choose a shipping method before payment.');

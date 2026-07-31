@@ -5,6 +5,7 @@ export interface ProductVariant {
   price: number;
   stock: number;
   image_url?: string | null;
+  shipping_prices?: Record<string, number>;
 }
 
 export interface ShippingOption {
