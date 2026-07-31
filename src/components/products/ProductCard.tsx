@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { Star, Users, Zap, Truck, Heart, GitCompare, Clock, Eye } from 'lucide-react';
 import { Product } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCompare } from '@/contexts/CompareContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getProductDisplayPrice } from '@/lib/product-adapters';
+import { PRODUCT_IMAGE_PLACEHOLDER, resolveProductImageUrl } from '@/lib/image-upload';
 import { toast } from 'sonner';
 
 interface ExtendedProduct extends Product {
@@ -66,6 +68,15 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
     displayPrice.kind === 'range'
       ? `${formatPrice(displayPrice.minPrice)} - ${formatPrice(displayPrice.maxPrice)}`
       : formatPrice(displayPrice.price);
+  const [imageSrc, setImageSrc] = useState(() => resolveProductImageUrl(product.images[0]));
+
+  useEffect(() => {
+    setImageSrc(resolveProductImageUrl(product.images[0]));
+  }, [product.images]);
+
+  const handleImageError = () => {
+    setImageSrc(PRODUCT_IMAGE_PLACEHOLDER);
+  };
 
   if (viewMode === 'list') {
     return (
@@ -75,8 +86,9 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
             {/* Image - horizontal layout */}
             <div className="relative aspect-[1.8/1] w-full shrink-0 overflow-hidden bg-muted min-[420px]:h-28 min-[420px]:w-28 sm:h-auto sm:w-48">
               <img
-                src={product.images[0]}
+                src={imageSrc}
                 alt={product.name}
+                onError={handleImageError}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
               <div className="absolute top-2 left-2 flex flex-col gap-1">
@@ -141,8 +153,9 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
       <Card className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
         <div className="relative aspect-[1/1.04] shrink-0 overflow-hidden bg-muted">
           <img
-            src={product.images[0]}
+            src={imageSrc}
             alt={product.name}
+            onError={handleImageError}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
           {/* Action Buttons */}

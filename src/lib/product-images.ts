@@ -21,25 +21,25 @@ export function getVariantImageUrls(variants: VariantImageSource[]): string[] {
   return uniqueNonEmpty(variants.map((variant) => variant.image_url));
 }
 
-function isVariantImageUrl(url: string, variantUrls: Set<string>): boolean {
-  return variantUrls.has(normalizeImageUrl(url));
-}
-
-/** Shared product shots only — excludes URLs stored on individual variants. */
+/** Product gallery images saved by admins. Falls back to variant images when needed. */
 export function getSharedProductImages(productImages: string[], variants: VariantImageSource[]): string[] {
-  const variantUrls = new Set(getVariantImageUrls(variants).map(normalizeImageUrl));
-  return productImages.filter((url) => !isVariantImageUrl(url, variantUrls));
+  const uniqueProductImages = uniqueNonEmpty(productImages);
+  if (uniqueProductImages.length > 0) {
+    return uniqueProductImages;
+  }
+
+  return getVariantImageUrls(variants);
 }
 
-/** Product detail gallery: product/lifestyle shots only (never variant images). */
+/** Product detail gallery with placeholder fallback. */
 export function buildDetailGalleryImages(
   productImages: string[],
   variants: VariantImageSource[],
 ): string[] {
-  const sharedImages = getSharedProductImages(productImages, variants);
+  const galleryImages = getSharedProductImages(productImages, variants);
 
-  if (sharedImages.length > 0) {
-    return sharedImages;
+  if (galleryImages.length > 0) {
+    return galleryImages;
   }
 
   return ['/placeholder.svg'];

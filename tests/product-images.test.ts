@@ -14,33 +14,32 @@ describe('product image gallery helpers', () => {
     { image_url: 'https://cdn.example.com/blue-variant.jpg' },
   ];
 
-  it('removes variant-only images from the shared product gallery', () => {
-    expect(getSharedProductImages(productImages, variants)).toEqual([
-      'https://cdn.example.com/lifestyle.jpg',
+  it('keeps all uploaded product images in the gallery', () => {
+    expect(getSharedProductImages(productImages, variants)).toEqual(productImages);
+  });
+
+  it('deduplicates repeated product image URLs', () => {
+    expect(
+      getSharedProductImages(
+        ['https://cdn.example.com/lifestyle.jpg', 'https://cdn.example.com/lifestyle.jpg'],
+        variants,
+      ),
+    ).toEqual(['https://cdn.example.com/lifestyle.jpg']);
+  });
+
+  it('falls back to variant images when no product images exist', () => {
+    expect(getSharedProductImages([], variants)).toEqual([
+      'https://cdn.example.com/tan-variant.jpg',
+      'https://cdn.example.com/blue-variant.jpg',
     ]);
   });
 
-  it('matches variant URLs even when query params differ', () => {
-    const imagesWithCacheBust = [
-      'https://cdn.example.com/lifestyle.jpg',
-      'https://cdn.example.com/tan-variant.jpg?v=2',
-    ];
-
-    expect(getSharedProductImages(imagesWithCacheBust, variants)).toEqual([
-      'https://cdn.example.com/lifestyle.jpg',
-    ]);
+  it('builds the detail gallery from uploaded product images', () => {
+    expect(buildDetailGalleryImages(productImages, variants)).toEqual(productImages);
   });
 
-  it('keeps variant images out of the product gallery even when a variant is selected', () => {
-    expect(buildDetailGalleryImages(productImages, variants)).toEqual([
-      'https://cdn.example.com/lifestyle.jpg',
-    ]);
-  });
-
-  it('shows placeholder when only variant images exist in product_images', () => {
-    expect(buildDetailGalleryImages(['https://cdn.example.com/tan-variant.jpg'], variants)).toEqual([
-      '/placeholder.svg',
-    ]);
+  it('shows placeholder when no product or variant images exist', () => {
+    expect(buildDetailGalleryImages([], [])).toEqual(['/placeholder.svg']);
   });
 
   it('normalizes image URLs for stable comparison', () => {

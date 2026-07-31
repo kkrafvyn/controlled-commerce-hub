@@ -37,6 +37,7 @@ import { ProductVariantsManager, VariantData } from './ProductVariantsManager';
 import { ProductShippingRules, ShippingRuleData } from './ProductShippingRules';
 import { productSchema, validateForm } from '@/lib/validations/admin';
 import { formatShippingPricesForForm, serializeShippingPrices } from '@/lib/shipping';
+import { resolveImageContentType, validateProductImageFile } from '@/lib/image-upload';
 import { fetchProductVariants, isMissingShippingPricesColumnError } from '@/lib/supabase-variants';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
@@ -111,12 +112,19 @@ const defaultForm: ProductForm = {
 };
 
 async function uploadVariantImage(productId: string, file: File): Promise<string> {
+  const validationError = validateProductImageFile(file);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
   const fileExt = file.name.split('.').pop() || 'jpg';
   const fileName = `${productId}/variants/${Date.now()}-${Math.random().toString(36).slice(2, 11)}.${fileExt}`;
 
   const { error: uploadError } = await supabase.storage
     .from('product-images')
-    .upload(fileName, file);
+    .upload(fileName, file, {
+      contentType: resolveImageContentType(file),
+    });
 
   if (uploadError) {
     throw uploadError;

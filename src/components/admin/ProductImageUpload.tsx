@@ -4,6 +4,12 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
+import {
+  ALLOWED_PRODUCT_IMAGE_ACCEPT,
+  extractProductImageStoragePath,
+  resolveImageContentType,
+  validateProductImageFile,
+} from '@/lib/image-upload';
 
 interface ProductImageUploadProps {
   productId?: string;
@@ -27,15 +33,13 @@ export function ProductImageUpload({
     if (files.length === 0) return;
 
     // Validate files
-    const validFiles = files.filter(file => {
-      if (!file.type.startsWith('image/')) {
-        toast.error(`${file.name} is not an image`);
+    const validFiles = files.filter((file) => {
+      const validationError = validateProductImageFile(file);
+      if (validationError) {
+        toast.error(validationError);
         return false;
       }
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast.error(`${file.name} is too large (max 5MB)`);
-        return false;
-      }
+
       return true;
     });
 
@@ -56,9 +60,8 @@ export function ProductImageUpload({
     setDeletingId(imageId);
     try {
       // Extract file path from URL
-      const urlParts = imageUrl.split('/product-images/');
-      if (urlParts.length > 1) {
-        const filePath = urlParts[1];
+      const filePath = extractProductImageStoragePath(imageUrl);
+      if (filePath) {
         await supabase.storage.from('product-images').remove([filePath]);
       }
 
@@ -141,7 +144,7 @@ export function ProductImageUpload({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept={ALLOWED_PRODUCT_IMAGE_ACCEPT}
           multiple
           onChange={handleFileSelect}
           className="hidden"
@@ -167,23 +170,41 @@ export function ProductImageUpload({
 // Helper function to upload images
 export async function uploadProductImages(productId: string, files: File[]): Promise<string[]> {
   const uploadedUrls: string[] = [];
+  const uploadedPaths: string[] = [];
 
-  for (const file of files) {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${productId}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+  try {
+    for (const file of files) {
+      const validationError = validateProductImageFile(file);
+      if (validationError) {
+        throw new Error(validationError);
+      }
 
-    const { error: uploadError } = await supabase.storage
-      .from('product-images')
-      .upload(fileName, file);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileName = `${productId}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
 
-    if (uploadError) throw uploadError;
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file, {
+          contentType: resolveImageContentType(file),
+        });
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(fileName);
+      if (uploadError) throw uploadError;
 
-    uploadedUrls.push(publicUrl);
+      uploadedPaths.push(fileName);
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      uploadedUrls.push(publicUrl);
+    }
+
+    return uploadedUrls;
+  } catch (error) {
+    if (uploadedPaths.length > 0) {
+      await supabase.storage.from('product-images').remove(uploadedPaths);
+    }
+
+    throw error;
   }
-
-  return uploadedUrls;
 }

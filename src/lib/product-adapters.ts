@@ -1,5 +1,6 @@
 import type { ProductWithDetails } from '@/hooks/useProducts';
 import type { CartItem, Product, ProductVariant } from '@/types';
+import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/image-upload';
 
 function getShippingType(name?: string | null): Product['shippingOptions'][number]['type'] {
   const normalized = (name || '').toLowerCase();
@@ -34,7 +35,7 @@ export function toConsumerProduct(product: ProductWithDetails): Product {
     description: product.description || '',
     category: product.category_name || 'Uncategorized',
     basePrice: product.base_price,
-    images: product.images.length > 0 ? product.images : ['https://via.placeholder.com/400'],
+    images: product.images.length > 0 ? product.images : [PRODUCT_IMAGE_PLACEHOLDER],
     variants: product.variants.map(toConsumerVariant),
     shippingOptions: product.shipping_rules
       .filter((rule) => rule.is_allowed && rule.shipping_class)

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ALLOWED_PRODUCT_IMAGE_ACCEPT, validateProductImageFile } from '@/lib/image-upload';
 
 type VariantPricingMode = 'same' | 'individual';
 
@@ -330,13 +331,9 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
       return;
     }
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please choose an image file.');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Variant image is too large. Max 5MB.');
+    const validationError = validateProductImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
@@ -539,7 +536,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   <input
                     ref={variantImageInputRef}
                     type="file"
-                    accept="image/*"
+                    accept={ALLOWED_PRODUCT_IMAGE_ACCEPT}
                     className="hidden"
                     onChange={handleVariantImageSelect}
                   />
