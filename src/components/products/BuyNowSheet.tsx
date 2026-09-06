@@ -134,7 +134,10 @@ export function BuyNowSheet({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
-  const { deferShippingPaymentEnabled } = useCheckoutFeatureFlags();
+  const { deferShippingPaymentEnabled, deferShippingPaymentFlashSaleEnabled } = useCheckoutFeatureFlags();
+  const deferShippingFeatureEnabled = product.is_flash_deal
+    ? deferShippingPaymentFlashSaleEnabled
+    : deferShippingPaymentEnabled;
   const isMobile = useIsMobile();
   const callbackFiredRef = useRef(false);
   const orderCreationInProgressRef = useRef(false);
@@ -270,17 +273,17 @@ export function BuyNowSheet({
     [checkoutSelections, product.is_free_shipping, product.variants],
   );
   const checkoutShippingCost =
-    deferShippingPayment && deferShippingPaymentEnabled ? 0 : effectiveShippingCost;
+    deferShippingPayment && deferShippingFeatureEnabled ? 0 : effectiveShippingCost;
   const showDeferShippingOption =
-    deferShippingPaymentEnabled && !product.is_free_shipping && effectiveShippingCost > 0 && !!resolvedShippingRule;
+    deferShippingFeatureEnabled && !product.is_free_shipping && effectiveShippingCost > 0 && !!resolvedShippingRule;
   const savings = useCheckoutSavings({ subtotal, shippingCost: checkoutShippingCost });
   const checkoutTotals = buildCheckoutSavingsTotalRows(savings, formatPrice, [
     { label: `Subtotal (${formatItemCount(totalQuantity)})`, value: formatPrice(subtotal) },
     {
-      label: deferShippingPayment && deferShippingPaymentEnabled && effectiveShippingCost > 0 ? 'Shipping (pay later)' : 'Shipping',
+      label: deferShippingPayment && deferShippingFeatureEnabled && effectiveShippingCost > 0 ? 'Shipping (pay later)' : 'Shipping',
       value: product.is_free_shipping
         ? 'FREE'
-        : deferShippingPayment && deferShippingPaymentEnabled
+        : deferShippingPayment && deferShippingFeatureEnabled
           ? `Due later (est. ${formatPrice(effectiveShippingCost)})`
           : formatPrice(effectiveShippingCost),
     },
@@ -539,7 +542,7 @@ export function BuyNowSheet({
           loyaltyPointsToRedeem: savings.loyaltyPointsApplied,
           useWalletCredit: savings.useWalletCredit,
           expectedTotal: savings.total,
-          deferShippingPayment: deferShippingPayment && deferShippingPaymentEnabled,
+          deferShippingPayment: deferShippingPayment && deferShippingFeatureEnabled,
           items: checkoutSelections.map((item) => ({
             productId: product.id,
             productVariantId: item.variantId,
@@ -1004,7 +1007,7 @@ export function BuyNowSheet({
                 amount: resolvedShippingRule
                   ? product.is_free_shipping
                     ? 'FREE'
-                    : deferShippingPayment && deferShippingPaymentEnabled
+                    : deferShippingPayment && deferShippingFeatureEnabled
                       ? `Pay later (est. ${formatPrice(effectiveShippingCost)})`
                       : formatPrice(effectiveShippingCost)
                   : null,

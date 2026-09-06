@@ -290,22 +290,46 @@ export function AdminShipping() {
       const { data, error } = await supabase
         .from('store_settings')
         .select('key, value')
-        .eq('key', 'deferShippingPaymentEnabled')
-        .maybeSingle();
+        .in('key', [
+          'deferShippingPaymentEnabled',
+          'deferShippingPaymentGroupBuyEnabled',
+          'deferShippingPaymentFlashSaleEnabled',
+        ]);
       if (error) throw error;
-      return data?.value;
+
+      const settings: Record<string, unknown> = {};
+      (data || []).forEach((row) => {
+        settings[row.key] = row.value;
+      });
+      return settings;
     },
   });
 
   const [deferShippingPaymentEnabled, setDeferShippingPaymentEnabled] = useState(false);
+  const [deferShippingPaymentGroupBuyEnabled, setDeferShippingPaymentGroupBuyEnabled] = useState(false);
+  const [deferShippingPaymentFlashSaleEnabled, setDeferShippingPaymentFlashSaleEnabled] = useState(false);
 
   useEffect(() => {
-    setDeferShippingPaymentEnabled(parseBooleanStoreSetting(checkoutSettings, false));
+    setDeferShippingPaymentEnabled(parseBooleanStoreSetting(checkoutSettings?.deferShippingPaymentEnabled, false));
+    setDeferShippingPaymentGroupBuyEnabled(
+      parseBooleanStoreSetting(checkoutSettings?.deferShippingPaymentGroupBuyEnabled, false),
+    );
+    setDeferShippingPaymentFlashSaleEnabled(
+      parseBooleanStoreSetting(checkoutSettings?.deferShippingPaymentFlashSaleEnabled, false),
+    );
   }, [checkoutSettings]);
 
   const saveCheckoutSettingsMutation = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      await upsertStoreSetting('deferShippingPaymentEnabled', enabled);
+    mutationFn: async (settings: {
+      deferShippingPaymentEnabled: boolean;
+      deferShippingPaymentGroupBuyEnabled: boolean;
+      deferShippingPaymentFlashSaleEnabled: boolean;
+    }) => {
+      await Promise.all([
+        upsertStoreSetting('deferShippingPaymentEnabled', settings.deferShippingPaymentEnabled),
+        upsertStoreSetting('deferShippingPaymentGroupBuyEnabled', settings.deferShippingPaymentGroupBuyEnabled),
+        upsertStoreSetting('deferShippingPaymentFlashSaleEnabled', settings.deferShippingPaymentFlashSaleEnabled),
+      ]);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-shipping-checkout-settings'] });
@@ -333,24 +357,58 @@ export function AdminShipping() {
         <CardHeader>
           <CardTitle>Checkout Shipping</CardTitle>
           <CardDescription>
-            Let customers pay for items now and settle shipping fees later after you confirm the final amount.
+            Control whether customers can pay shipping fees later instead of at checkout.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <Label htmlFor="defer-shipping-payment">Pay shipping later</Label>
-            <p className="text-sm text-muted-foreground">
-              When enabled, checkout can skip shipping charges and you set the final fee on each order.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
+        <CardContent className="space-y-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="defer-shipping-cart">Cart checkout</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow pay shipping later on the standard cart checkout flow.
+              </p>
+            </div>
             <Switch
-              id="defer-shipping-payment"
+              id="defer-shipping-cart"
               checked={deferShippingPaymentEnabled}
               onCheckedChange={setDeferShippingPaymentEnabled}
             />
+          </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="defer-shipping-group-buy">Group buy checkout</Label>
+              <p className="text-sm text-muted-foreground">
+                Show shipping fees and let group buy participants defer shipping payment.
+              </p>
+            </div>
+            <Switch
+              id="defer-shipping-group-buy"
+              checked={deferShippingPaymentGroupBuyEnabled}
+              onCheckedChange={setDeferShippingPaymentGroupBuyEnabled}
+            />
+          </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="defer-shipping-flash-sale">Flash sale checkout</Label>
+              <p className="text-sm text-muted-foreground">
+                Show shipping fees and let flash deal buyers defer shipping payment.
+              </p>
+            </div>
+            <Switch
+              id="defer-shipping-flash-sale"
+              checked={deferShippingPaymentFlashSaleEnabled}
+              onCheckedChange={setDeferShippingPaymentFlashSaleEnabled}
+            />
+          </div>
+          <div className="flex justify-end">
             <Button
-              onClick={() => saveCheckoutSettingsMutation.mutate(deferShippingPaymentEnabled)}
+              onClick={() =>
+                saveCheckoutSettingsMutation.mutate({
+                  deferShippingPaymentEnabled,
+                  deferShippingPaymentGroupBuyEnabled,
+                  deferShippingPaymentFlashSaleEnabled,
+                })
+              }
               disabled={saveCheckoutSettingsMutation.isPending}
             >
               {saveCheckoutSettingsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}

@@ -29,6 +29,7 @@ interface ProductRow {
   base_price: number;
   is_active: boolean | null;
   is_free_shipping: boolean | null;
+  is_flash_deal: boolean | null;
   is_fragile: boolean | null;
   reinforced_packaging_cost: number | null;
   allow_standard_packaging: boolean | null;
@@ -138,6 +139,7 @@ interface StoreSettings {
   couponsEnabled: boolean;
   giftCardsEnabled: boolean;
   deferShippingPaymentEnabled: boolean;
+  deferShippingPaymentFlashSaleEnabled: boolean;
 }
 
 interface VerifiedPayment {
@@ -251,6 +253,7 @@ async function getStoreSettings(supabase: ReturnType<typeof createServiceSupabas
     couponsEnabled: true,
     giftCardsEnabled: true,
     deferShippingPaymentEnabled: false,
+    deferShippingPaymentFlashSaleEnabled: false,
   };
 
   const { data, error } = await supabase.from('store_settings').select('key, value');
@@ -395,7 +398,7 @@ Deno.serve(async (req) => {
         supabase
           .from('products')
           .select(
-            'id, name, base_price, is_active, is_free_shipping, is_fragile, reinforced_packaging_cost, allow_standard_packaging, allow_reinforced_packaging',
+            'id, name, base_price, is_active, is_free_shipping, is_flash_deal, is_fragile, reinforced_packaging_cost, allow_standard_packaging, allow_reinforced_packaging',
           )
           .in('id', productIds),
         fetchCheckoutVariants(supabase, productIds),
@@ -545,7 +548,11 @@ Deno.serve(async (req) => {
     }
 
     const deferShippingPayment = body.deferShippingPayment === true;
-    if (deferShippingPayment && !settings.deferShippingPaymentEnabled) {
+    const buyNowProduct = flow === 'buy_now' ? productsById.get(items[0]?.productId || '') : null;
+    const deferShippingAllowed = buyNowProduct?.is_flash_deal
+      ? settings.deferShippingPaymentFlashSaleEnabled
+      : settings.deferShippingPaymentEnabled;
+    if (deferShippingPayment && !deferShippingAllowed) {
       throw new Error('Pay shipping later is not available right now.');
     }
 

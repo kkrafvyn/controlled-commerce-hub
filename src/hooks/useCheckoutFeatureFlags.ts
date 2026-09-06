@@ -9,5 +9,13 @@ export function useCheckoutFeatureFlags() {
     giftCardsEnabled: parseBooleanStoreSetting(storeSettings?.giftCardsEnabled, true),
     loyaltyEnabled: parseBooleanStoreSetting(storeSettings?.loyaltyEnabled, true),
     deferShippingPaymentEnabled: parseBooleanStoreSetting(storeSettings?.deferShippingPaymentEnabled, false),
+    deferShippingPaymentGroupBuyEnabled: parseBooleanStoreSetting(
+      storeSettings?.deferShippingPaymentGroupBuyEnabled,
+      false,
+    ),
+    deferShippingPaymentFlashSaleEnabled: parseBooleanStoreSetting(
+      storeSettings?.deferShippingPaymentFlashSaleEnabled,
+      false,
+    ),
   };
 }

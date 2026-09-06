@@ -62,6 +62,7 @@ import {
   extractGroupBuySelectionsFromShippingAddress,
   getGroupBuySelectionsTotalAmount,
 } from '@/lib/groupBuySelections';
+import { readGroupBuyShippingPaymentInfo } from '@/lib/groupBuyShipping';
 import { GroupBuyParticipantList } from '@/components/groupbuy/GroupBuyParticipantList';
 import { AdminGroupBuySettingsCard } from './AdminGroupBuySettingsCard';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
@@ -615,13 +616,22 @@ export function AdminGroupBuys() {
             participant.shipping_address && typeof participant.shipping_address === 'object'
               ? participant.shipping_address
               : null;
+          const {
+            shippingPaymentDeferred,
+            estimatedShippingPrice,
+            shippingPricePaid,
+          } = readGroupBuyShippingPaymentInfo(shippingAddress);
+          const childOrderTotal = childTotal + shippingPricePaid;
 
           const { data: childOrder, error: childOrderError } = await supabase
             .from('orders')
             .insert({
               user_id: participant.user_id,
               subtotal: childTotal,
-              total_amount: childTotal,
+              shipping_price: shippingPricePaid,
+              estimated_shipping_price: shippingPaymentDeferred ? estimatedShippingPrice : null,
+              shipping_payment_deferred: shippingPaymentDeferred,
+              total_amount: childOrderTotal,
               group_buy_id: groupBuyId,
               parent_order_id: masterOrder.id,
               status: 'confirmed',

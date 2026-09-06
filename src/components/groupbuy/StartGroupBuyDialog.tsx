@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -37,6 +38,12 @@ import {
 } from '@/lib/groupBuyCheckout';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
 import { buildCheckoutSavingsTotalRows, useCheckoutSavings } from '@/hooks/useCheckoutSavings';
+import { useCheckoutFeatureFlags } from '@/hooks/useCheckoutFeatureFlags';
+import {
+  buildGroupBuyAddressPayload,
+  buildGroupBuyShippingTotalRow,
+  resolveGroupBuyShippingCost,
+} from '@/lib/groupBuyShipping';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 import {
   CheckoutSavingsCard,
@@ -104,38 +111,13 @@ function formatAddressLine(address?: GroupBuyAddress | null) {
   return [address.full_name, address.city, address.country].filter(Boolean).join(', ');
 }
 
-function buildAddressPayload(
-  address: GroupBuyAddress | null,
-  shippingRule: GroupBuyShippingRule | null,
-) {
-  if (!address) return null;
-
-  return {
-    full_name: address.full_name,
-    phone: address.phone,
-    address_line1: address.address_line1,
-    address_line2: address.address_line2,
-    city: address.city,
-    state: address.state,
-    country: address.country,
-    shipping_method: shippingRule?.shipping_classes
-      ? {
-          id: shippingRule.shipping_class_id,
-          name: shippingRule.shipping_classes.name,
-          price: Number(shippingRule.price ?? shippingRule.shipping_classes.base_price ?? 0),
-          estimated_days_min: shippingRule.shipping_classes.estimated_days_min,
-          estimated_days_max: shippingRule.shipping_classes.estimated_days_max,
-        }
-      : null,
-  };
-}
-
 export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuyDialogProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
   const { settings: groupBuySettings } = useGroupBuySettings();
+  const { deferShippingPaymentGroupBuyEnabled } = useCheckoutFeatureFlags();
   const [isOpen, setIsOpen] = useState(false);
   const [participantCount, setParticipantCount] = useState(String(groupBuySettings.minParticipantsRequired));
   const [quantity, setQuantity] = useState('1');
@@ -146,6 +128,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   const [selectedShippingRuleId, setSelectedShippingRuleId] = useState('');
   const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false);
   const [isShippingPickerOpen, setIsShippingPickerOpen] = useState(false);
+  const [deferShippingPayment, setDeferShippingPayment] = useState(false);
   const callbackFiredRef = useRef(false);
 
   const { data: variants } = useQuery({
@@ -204,6 +187,19 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
     },
   });
 
+  const { data: productShippingInfo } = useQuery({
+    queryKey: ['group-buy-product-shipping', product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('is_free_shipping')
+        .eq('id', product.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const selectedAddress =
     addresses.find((address) => address.id === selectedAddressId) ||
     addresses.find((address) => address.is_default) ||
@@ -257,7 +253,41 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   const averageUnitPrice = totalSelectedQuantity > 0
     ? totalAmount / totalSelectedQuantity
     : offeredUnitPrice;
-  const savings = useCheckoutSavings({ subtotal: totalAmount, shippingCost: 0 });
+  const isFreeShipping = productShippingInfo?.is_free_shipping === true;
+  const effectiveShippingCost = useMemo(
+    () =>
+      resolveGroupBuyShippingCost({
+        shippingRule: selectedShippingRule,
+        variantSelections,
+        variants: variants || [],
+        totalQuantity: totalSelectedQuantity,
+        shippingFeeOverride: groupBuySettings.shippingFeeOverride,
+        isFreeShipping,
+      }),
+    [
+      groupBuySettings.shippingFeeOverride,
+      isFreeShipping,
+      selectedShippingRule,
+      totalSelectedQuantity,
+      variantSelections,
+      variants,
+    ],
+  );
+  const checkoutShippingCost =
+    deferShippingPayment && deferShippingPaymentGroupBuyEnabled ? 0 : effectiveShippingCost;
+  const showDeferShippingOption =
+    deferShippingPaymentGroupBuyEnabled &&
+    !isFreeShipping &&
+    effectiveShippingCost > 0 &&
+    !!selectedShippingRule;
+  const shippingTotalRow = buildGroupBuyShippingTotalRow({
+    effectiveShippingCost,
+    deferShippingPayment,
+    deferShippingEnabled: deferShippingPaymentGroupBuyEnabled,
+    isFreeShipping,
+    formatPrice,
+  });
+  const savings = useCheckoutSavings({ subtotal: totalAmount, shippingCost: checkoutShippingCost });
   const checkoutTotals = buildCheckoutSavingsTotalRows(
     savings,
     formatPrice,
@@ -265,6 +295,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
       { label: 'Participants needed', value: String(normalizedParticipantCount) },
       { label: 'Total items', value: String(totalSelectedQuantity) },
       { label: 'Subtotal', value: formatPrice(totalAmount) },
+      shippingTotalRow,
     ],
   );
   const exceedsParticipantLimitPerUser = totalSelectedQuantity > groupBuySettings.participantLimitPerUser;
@@ -279,6 +310,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
     setVariantQuantities({});
     setStep('setup');
     setIsPaying(false);
+    setDeferShippingPayment(false);
   };
 
   const handleOpen = (open: boolean) => {
@@ -556,7 +588,10 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
       return;
     }
 
-    const addressData = buildAddressPayload(selectedAddress, selectedShippingRule);
+    const addressData = buildGroupBuyAddressPayload(selectedAddress, selectedShippingRule, {
+      effectiveShippingCost,
+      deferShippingPayment: deferShippingPayment && deferShippingPaymentGroupBuyEnabled,
+    });
 
     const { error: participantError } = await supabase.rpc('join_group_buy_after_payment' as never, {
       p_group_buy_id: gbData.id,
@@ -706,9 +741,14 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
               <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Your payment:</span>
-                  <span className="text-xl font-bold text-primary">{formatPrice(totalAmount)}</span>
+                  <span className="text-xl font-bold text-primary">{formatPrice(savings.total)}</span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">Total items: {totalSelectedQuantity}</p>
+                {effectiveShippingCost > 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Includes shipping: {formatPrice(checkoutShippingCost)}
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex flex-col gap-2 pt-4 sm:flex-row">
@@ -738,7 +778,13 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
                         detail: selectedShippingRule?.shipping_classes
                           ? `${selectedShippingRule.shipping_classes.name} (${selectedShippingRule.shipping_classes.estimated_days_min}-${selectedShippingRule.shipping_classes.estimated_days_max} days)`
                           : 'Choose a shipping method',
-                        amount: selectedShippingRule ? 'Selected' : null,
+                        amount: selectedShippingRule
+                          ? isFreeShipping
+                            ? 'Free'
+                            : deferShippingPayment && deferShippingPaymentGroupBuyEnabled
+                              ? `Due later (est. ${formatPrice(effectiveShippingCost)})`
+                              : formatPrice(effectiveShippingCost)
+                          : null,
                         icon: getShippingIcon(selectedShippingRule?.shipping_classes?.shipping_types?.name),
                         onClick: () => setIsShippingPickerOpen(true),
                       }
@@ -781,6 +827,21 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
                 onMakeChanges={() => setStep('setup')}
                 onPay={handlePayAndCreate}
               >
+                {showDeferShippingOption ? (
+                  <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card/90 p-4">
+                    <Checkbox
+                      checked={deferShippingPayment}
+                      onCheckedChange={(checked) => setDeferShippingPayment(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Pay shipping later</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Pay for items now. AJYN will confirm your final shipping fee before dispatch.
+                      </p>
+                    </div>
+                  </label>
+                ) : null}
                 <CheckoutSavingsCard savings={savings} />
               </PurchaseSummary>
             </div>
