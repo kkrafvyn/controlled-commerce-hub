@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { ChevronRight, Loader2, Lock, PencilLine, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { resolveProductImageUrl } from '@/lib/image-upload';
 import { cn } from '@/lib/utils';
 
 export interface PurchaseSummaryInfoCard {
@@ -155,19 +156,18 @@ export function PurchaseSummary({
         </div>
 
         <div className="space-y-3">
-          {items.map((item) => (
+          {items.map((item) => {
+            const imageSrc = resolveProductImageUrl(item.imageUrl);
+
+            return (
             <div key={item.id} className="rounded-2xl border border-border/70 bg-background/70 p-2.5">
               <div className="flex gap-3">
                 <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
-                  {item.imageUrl ? (
-                    <img
-                      src={item.imageUrl}
-                      alt={item.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-muted" />
-                  )}
+                  <img
+                    src={imageSrc}
+                    alt={item.title}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
@@ -200,7 +200,8 @@ export function PurchaseSummary({
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

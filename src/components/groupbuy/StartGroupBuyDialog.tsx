@@ -54,6 +54,7 @@ import {
   formatGroupBuyDuration,
   groupBuyDurationToMilliseconds,
 } from '@/lib/groupBuyConfig';
+import { resolveProductImageUrl } from '@/lib/image-upload';
 
 interface StartGroupBuyDialogProps {
   product: {
@@ -199,6 +200,26 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
       return data;
     },
   });
+
+  const { data: primaryProductImageUrl = null } = useQuery({
+    queryKey: ['group-buy-product-image', product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('image_url')
+        .eq('product_id', product.id)
+        .order('order_index', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.image_url || null;
+    },
+  });
+
+  const resolveVariantImageUrl = (variantId: string) => {
+    const variant = variants?.find((entry) => entry.id === variantId);
+    return resolveProductImageUrl(variant?.image_url || primaryProductImageUrl);
+  };
 
   const selectedAddress =
     addresses.find((address) => address.id === selectedAddressId) ||
@@ -804,6 +825,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
                     ? variantSelections.map((selection) => ({
                         id: selection.variantId,
                         title: product.name,
+                        imageUrl: resolveVariantImageUrl(selection.variantId),
                         subtitle: selection.label,
                         quantity: selection.quantity,
                         amount: formatPrice(selection.unitPrice * selection.quantity),
@@ -813,6 +835,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
                         {
                           id: product.id,
                           title: product.name,
+                          imageUrl: resolveProductImageUrl(primaryProductImageUrl),
                           subtitle: 'Group buy reservation',
                           quantity,
                           amount: formatPrice(totalAmount),

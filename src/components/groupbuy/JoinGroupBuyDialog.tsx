@@ -39,6 +39,7 @@ import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
 import { buildCheckoutSavingsTotalRows, useCheckoutSavings } from '@/hooks/useCheckoutSavings';
 import { useCheckoutFeatureFlags } from '@/hooks/useCheckoutFeatureFlags';
 import { resolveGroupBuySettings } from '@/lib/groupBuyConfig';
+import { resolveProductImageUrl } from '@/lib/image-upload';
 import {
   buildGroupBuyAddressPayload,
   buildGroupBuyShippingTotalRow,
@@ -238,6 +239,26 @@ export function JoinGroupBuyDialog({
       return data;
     },
   });
+
+  const { data: primaryProductImageUrl = null } = useQuery({
+    queryKey: ['group-buy-product-image', groupBuy.product_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('image_url')
+        .eq('product_id', groupBuy.product_id)
+        .order('order_index', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.image_url || null;
+    },
+  });
+
+  const resolveVariantImageUrl = (variantId: string) => {
+    const variant = variants?.find((entry) => entry.id === variantId);
+    return resolveProductImageUrl(variant?.image_url || primaryProductImageUrl);
+  };
 
   const selectedAddress =
     addresses.find((address) => address.id === selectedAddressId) ||
@@ -927,6 +948,7 @@ export function JoinGroupBuyDialog({
                     ? variantSelections.map((selection) => ({
                         id: selection.variantId,
                         title: groupBuy.product?.name || 'Group buy item',
+                        imageUrl: resolveVariantImageUrl(selection.variantId),
                         subtitle: selection.label,
                         quantity: selection.quantity,
                         amount: formatPrice(selection.unitPrice * selection.quantity),
@@ -936,6 +958,7 @@ export function JoinGroupBuyDialog({
                         {
                           id: groupBuy.id,
                           title: groupBuy.product?.name || 'Group buy item',
+                          imageUrl: resolveProductImageUrl(primaryProductImageUrl),
                           subtitle: activeTier ? activeTier.label : 'Group buy reservation',
                           quantity,
                           amount: formatPrice(totalAmount),

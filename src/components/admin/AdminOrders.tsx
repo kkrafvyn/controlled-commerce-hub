@@ -56,6 +56,8 @@ import {
   buildRefundEmailText,
 } from '@/lib/email-templates';
 import { GroupBuyParticipantList } from '@/components/groupbuy/GroupBuyParticipantList';
+import { DeliveryAddressBlock } from '@/components/admin/DeliveryAddressBlock';
+import { resolveProductImageUrl } from '@/lib/image-upload';
 import {
   OFFICIAL_ORDER_TRACKING_STATUSES,
   ORDER_TRACKING_STATUS_LABELS,
@@ -83,17 +85,6 @@ type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 type ProductImageRow = Database['public']['Tables']['product_images']['Row'];
 type ProductVariantRow = Database['public']['Tables']['product_variants']['Row'];
 type RefundRequestRow = Database['public']['Tables']['refund_requests']['Row'];
-
-interface ShippingAddress {
-  full_name?: string;
-  address_line1?: string;
-  address_line2?: string | null;
-  city?: string;
-  state?: string | null;
-  postal_code?: string | null;
-  country?: string;
-  phone?: string | null;
-}
 
 interface FulfillmentChecks {
   picked?: boolean;
@@ -327,11 +318,13 @@ function AdminOrderThumbnail({
   imageUrl?: string | null;
   alt: string;
 }) {
+  const resolvedImageUrl = resolveProductImageUrl(imageUrl);
+
   return (
     <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
       {imageUrl ? (
         <img
-          src={imageUrl}
+          src={resolvedImageUrl}
           alt={alt}
           className="h-full w-full object-cover"
           loading="lazy"
@@ -563,14 +556,6 @@ export function AdminOrders() {
   const [isUploadingProof, setIsUploadingProof] = useState(false);
   const [proofImagePreviewUrl, setProofImagePreviewUrl] = useState('');
 
-  const getShippingAddress = useCallback((address: Json | null): ShippingAddress | null => {
-    if (!address || typeof address !== 'object' || Array.isArray(address)) {
-      return null;
-    }
-
-    return address as ShippingAddress;
-  }, []);
-
   const getFulfillmentChecks = useCallback((checks: Json | null): FulfillmentChecks => {
     if (!checks || typeof checks !== 'object' || Array.isArray(checks)) {
       return {};
@@ -673,18 +658,24 @@ export function AdminOrders() {
       }
 
       let variantProductMap = new Map<string, string>();
+      let variantImageMap = new Map<string, string>();
       if (variantIds.length > 0) {
         const { data: variantData } = await supabase
           .from('product_variants')
-          .select('id, product_id')
+          .select('id, product_id, image_url')
           .in('id', variantIds);
 
         variantProductMap = new Map(
-          (variantData as Pick<ProductVariantRow, 'id' | 'product_id'>[] | null)?.map((variant) => [
+          (variantData as Pick<ProductVariantRow, 'id' | 'product_id' | 'image_url'>[] | null)?.map((variant) => [
             variant.id,
             variant.product_id,
           ]) || [],
         );
+        (variantData as Pick<ProductVariantRow, 'id' | 'product_id' | 'image_url'>[] | null)?.forEach((variant) => {
+          if (variant.image_url) {
+            variantImageMap.set(variant.id, variant.image_url);
+          }
+        });
       }
 
       const imageProductIds = [
@@ -736,10 +727,14 @@ export function AdminOrders() {
           const resolvedProductId =
             item.product_id ||
             (item.product_variant_id ? variantProductMap.get(item.product_variant_id) || null : null);
+          const variantImage = item.product_variant_id
+            ? variantImageMap.get(item.product_variant_id) || null
+            : null;
+          const productImage = resolvedProductId ? productImageMap.get(resolvedProductId) || null : null;
 
           return {
             ...item,
-            image_url: resolvedProductId ? productImageMap.get(resolvedProductId) || null : null,
+            image_url: resolveProductImageUrl(variantImage || productImage),
           };
         }),
         order_tracking: order.order_tracking ?? [],
@@ -2084,7 +2079,6 @@ export function AdminOrders() {
                                 </div>
                                 <div className="space-y-3">
                                   {childOrders.map((order) => {
-                                    const shippingAddress = getShippingAddress(order.shipping_address);
                                     const totalQuantity = order.order_items.reduce(
                                       (sum, item) => sum + Number(item.quantity || 0),
                                       0,
@@ -2111,13 +2105,18 @@ export function AdminOrders() {
                                             </p>
                                             <p className="text-sm text-muted-foreground">
                                               {totalQuantity} item{totalQuantity === 1 ? '' : 's'}
-                                              {shippingAddress?.city ? ` - ${shippingAddress.city}` : ''}
-                                              {shippingAddress?.phone ? ` - ${shippingAddress.phone}` : ''}
                                             </p>
                                           </div>
                                           <p className="font-semibold text-primary">
                                             {formatPrice(Number(order.total_amount))}
                                           </p>
+                                        </div>
+                                        <div className="mt-3">
+                                          <DeliveryAddressBlock
+                                            value={order.shipping_address}
+                                            formatPrice={formatPrice}
+                                            compact
+                                          />
                                         </div>
                                       </div>
                                     );
@@ -2228,7 +2227,7 @@ export function AdminOrders() {
                   </CardHeader>
                   <CollapsibleContent>
                   <CardContent>
-                    <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-5">
+                    <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                       <div>
                         <p className="text-sm text-muted-foreground">Customer</p>
                         <p className="font-medium text-foreground">
@@ -2275,6 +2274,13 @@ export function AdminOrders() {
                           <p className="text-sm text-muted-foreground italic">No refund request</p>
                         )}
                       </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <DeliveryAddressBlock
+                        value={order.shipping_address}
+                        formatPrice={formatPrice}
+                      />
                     </div>
 
                     {!isCancelled && (
@@ -2758,21 +2764,10 @@ export function AdminOrders() {
                                 ))}
                               </div>
                             </div>
-                            <div>
-                              <h4 className="font-semibold mb-2">Shipping Address</h4>
-                              {getShippingAddress(order.shipping_address) ? (
-                                <div className="text-sm text-muted-foreground p-3 bg-muted rounded-lg">
-                                  <p className="font-medium text-foreground">{getShippingAddress(order.shipping_address)?.full_name}</p>
-                                  <p>{getShippingAddress(order.shipping_address)?.address_line1}</p>
-                                  {getShippingAddress(order.shipping_address)?.address_line2 && <p>{getShippingAddress(order.shipping_address)?.address_line2}</p>}
-                                  <p>{getShippingAddress(order.shipping_address)?.city}, {getShippingAddress(order.shipping_address)?.state} {getShippingAddress(order.shipping_address)?.postal_code}</p>
-                                  <p>{getShippingAddress(order.shipping_address)?.country}</p>
-                                  <p className="mt-2">Phone: {getShippingAddress(order.shipping_address)?.phone}</p>
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">No address provided</p>
-                              )}
-                            </div>
+                            <DeliveryAddressBlock
+                              value={order.shipping_address}
+                              formatPrice={formatPrice}
+                            />
                             <div>
                               <h4 className="font-semibold mb-2">Tracking History</h4>
                               <div className="space-y-2">

@@ -10,17 +10,15 @@ import {
   extractGroupBuySelectionsFromShippingAddress,
   getGroupBuySelectionsTotalQuantity,
 } from '@/lib/groupBuySelections';
+import { DeliveryAddressBlock, hasDeliveryAddress } from '@/components/admin/DeliveryAddressBlock';
+import { useCurrency } from '@/hooks/useCurrency';
+import type { DeliveryAddress } from '@/lib/shippingAddressDisplay';
 
 interface GroupBuyParticipantListProps {
   groupBuyId: string;
 }
 
 type GroupBuyParticipantRow = Tables<'group_buy_participants'>;
-
-interface ShippingAddress {
-  address_line1?: string;
-  city?: string;
-}
 
 interface Participant extends GroupBuyParticipantRow {
   profile: {
@@ -35,14 +33,6 @@ interface Participant extends GroupBuyParticipantRow {
   } | null | undefined;
 }
 
-function readShippingAddress(value: Json | null): ShippingAddress | null {
-  if (!value || Array.isArray(value) || typeof value !== 'object') {
-    return null;
-  }
-
-  return value as ShippingAddress;
-}
-
 function getInitials(name: string | null | undefined, email: string | null | undefined) {
   const source = name?.trim() || email?.trim() || 'AJYN member';
   const [first, second] = source.split(/\s+|@/);
@@ -51,6 +41,8 @@ function getInitials(name: string | null | undefined, email: string | null | und
 }
 
 export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListProps) {
+  const { formatPrice } = useCurrency();
+
   const { data: participants, isLoading } = useQuery({
     queryKey: ['group-buy-participants', groupBuyId],
     queryFn: async (): Promise<Participant[]> => {
@@ -62,13 +54,46 @@ export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListP
 
       if (error) throw error;
 
-      const userIds = (data || []).map((participant) => participant.user_id);
+      const participantRows = data || [];
+      const userIds = participantRows.map((participant) => participant.user_id);
+      const missingAddressUserIds = participantRows
+        .filter((participant) => !hasDeliveryAddress(participant.shipping_address))
+        .map((participant) => participant.user_id);
+
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, name, email, phone, avatar_url')
         .in('user_id', userIds);
 
-      const variantIds = (data || []).map((participant) => participant.variant_id).filter(Boolean);
+      const { data: fallbackAddresses } = missingAddressUserIds.length > 0
+        ? await supabase
+            .from('addresses')
+            .select('user_id, label, full_name, phone, address_line1, address_line2, city, state, postal_code, country, is_default, created_at')
+            .in('user_id', missingAddressUserIds)
+            .order('is_default', { ascending: false })
+            .order('created_at', { ascending: true })
+        : { data: [] as Array<DeliveryAddress & { user_id: string }> };
+
+      const fallbackAddressByUserId = new Map<string, DeliveryAddress>();
+      (fallbackAddresses || []).forEach((address) => {
+        if (!address.user_id || fallbackAddressByUserId.has(address.user_id)) {
+          return;
+        }
+
+        fallbackAddressByUserId.set(address.user_id, {
+          full_name: address.full_name,
+          phone: address.phone,
+          address_line1: address.address_line1,
+          address_line2: address.address_line2,
+          city: address.city,
+          state: address.state,
+          postal_code: address.postal_code,
+          country: address.country,
+          label: address.label,
+        });
+      });
+
+      const variantIds = participantRows.map((participant) => participant.variant_id).filter(Boolean);
       const { data: variants } = variantIds.length > 0
         ? await supabase
             .from('product_variants')
@@ -80,11 +105,18 @@ export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListP
       const variantMap = new Map<string, { id: string; color: string | null; size: string | null }>();
       variants?.forEach((variant) => variantMap.set(variant.id, variant));
 
-      return (data || []).map((participant): Participant => ({
-        ...participant,
-        profile: profileMap.get(participant.user_id) || null,
-        variant: participant.variant_id ? variantMap.get(participant.variant_id) || null : null,
-      }));
+      return participantRows.map((participant): Participant => {
+        const resolvedShippingAddress = hasDeliveryAddress(participant.shipping_address)
+          ? participant.shipping_address
+          : fallbackAddressByUserId.get(participant.user_id) || participant.shipping_address;
+
+        return {
+          ...participant,
+          shipping_address: resolvedShippingAddress,
+          profile: profileMap.get(participant.user_id) || null,
+          variant: participant.variant_id ? variantMap.get(participant.variant_id) || null : null,
+        };
+      });
     },
   });
 
@@ -106,72 +138,126 @@ export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListP
   };
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Customer</TableHead>
-          <TableHead>Variant</TableHead>
-          <TableHead>Qty</TableHead>
-          <TableHead>Payment</TableHead>
-          <TableHead>Ref</TableHead>
-          <TableHead>Address</TableHead>
-          <TableHead>Joined</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <div className="space-y-4">
+      <div className="hidden lg:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Customer</TableHead>
+              <TableHead>Variant</TableHead>
+              <TableHead>Qty</TableHead>
+              <TableHead>Payment</TableHead>
+              <TableHead>Ref</TableHead>
+              <TableHead className="min-w-[260px]">Delivery Address</TableHead>
+              <TableHead>Joined</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {participants.map((participant) => {
+              const selections = extractGroupBuySelectionsFromShippingAddress(participant.shipping_address);
+
+              return (
+                <TableRow key={participant.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8 border border-border bg-primary/10">
+                        <AvatarImage
+                          src={participant.profile?.avatar_url || undefined}
+                          alt={`${participant.profile?.name || 'Customer'} avatar`}
+                        />
+                        <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+                          {getInitials(participant.profile?.name, participant.profile?.email)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm">{participant.profile?.name || 'Unknown'}</p>
+                        <p className="text-xs text-muted-foreground">{participant.profile?.email || ''}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {selections.length > 0 ? (
+                      <div className="space-y-1">
+                        {selections.map((selection) => (
+                          <p key={selection.variantId}>
+                            {selection.label} x {selection.quantity}
+                          </p>
+                        ))}
+                      </div>
+                    ) : participant.variant ? (
+                      <span>{[participant.variant.color, participant.variant.size].filter(Boolean).join(' / ') || '-'}</span>
+                    ) : '-'}
+                  </TableCell>
+                  <TableCell>{selections.length > 0 ? getGroupBuySelectionsTotalQuantity(selections) : participant.quantity || 1}</TableCell>
+                  <TableCell>{getPaymentBadge(participant.payment_status)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
+                    {participant.payment_reference || '-'}
+                  </TableCell>
+                  <TableCell>
+                    <DeliveryAddressBlock
+                      value={participant.shipping_address as Json | null}
+                      formatPrice={formatPrice}
+                      compact
+                    />
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatStoreDate(participant.joined_at)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="space-y-3 lg:hidden">
         {participants.map((participant) => {
-          const address = readShippingAddress(participant.shipping_address);
           const selections = extractGroupBuySelectionsFromShippingAddress(participant.shipping_address);
 
           return (
-            <TableRow key={participant.id}>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8 border border-border bg-primary/10">
+            <div key={participant.id} className="rounded-2xl border border-border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10 border border-border bg-primary/10">
                     <AvatarImage
                       src={participant.profile?.avatar_url || undefined}
                       alt={`${participant.profile?.name || 'Customer'} avatar`}
                     />
-                    <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+                    <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                       {getInitials(participant.profile?.name, participant.profile?.email)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium text-sm">{participant.profile?.name || 'Unknown'}</p>
+                    <p className="font-medium text-foreground">{participant.profile?.name || 'Unknown'}</p>
                     <p className="text-xs text-muted-foreground">{participant.profile?.email || ''}</p>
                   </div>
                 </div>
-              </TableCell>
-              <TableCell className="text-sm">
-                {selections.length > 0 ? (
-                  <div className="space-y-1">
-                    {selections.map((selection) => (
-                      <p key={selection.variantId}>
-                        {selection.label} x {selection.quantity}
-                      </p>
-                    ))}
-                  </div>
-                ) : participant.variant ? (
-                  <span>{[participant.variant.color, participant.variant.size].filter(Boolean).join(' / ') || '-'}</span>
-                ) : '-'}
-              </TableCell>
-              <TableCell>{selections.length > 0 ? getGroupBuySelectionsTotalQuantity(selections) : participant.quantity || 1}</TableCell>
-              <TableCell>{getPaymentBadge(participant.payment_status)}</TableCell>
-              <TableCell className="text-xs text-muted-foreground max-w-[100px] truncate">
-                {participant.payment_reference || '-'}
-              </TableCell>
-              <TableCell className="text-xs max-w-[150px]">
-                {address ? (
-                  <span className="truncate block">{address.city || address.address_line1 || 'Provided'}</span>
-                ) : <span className="text-muted-foreground">Not provided</span>}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {formatStoreDate(participant.joined_at)}
-              </TableCell>
-            </TableRow>
+                {getPaymentBadge(participant.payment_status)}
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Quantity</p>
+                  <p className="font-medium text-foreground">
+                    {selections.length > 0 ? getGroupBuySelectionsTotalQuantity(selections) : participant.quantity || 1}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Joined</p>
+                  <p className="font-medium text-foreground">{formatStoreDate(participant.joined_at)}</p>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <DeliveryAddressBlock
+                  value={participant.shipping_address as Json | null}
+                  formatPrice={formatPrice}
+                />
+              </div>
+            </div>
           );
         })}
-      </TableBody>
-    </Table>
+      </div>
+    </div>
   );
 }
