@@ -538,6 +538,7 @@ export type Database = {
           min_participants: number
           product_id: string
           settings: Json
+          starts_at: string | null
           status: Database["public"]["Enums"]["group_buy_status"] | null
           title: string | null
           updated_at: string
@@ -559,6 +560,7 @@ export type Database = {
           min_participants: number
           product_id: string
           settings?: Json
+          starts_at?: string | null
           status?: Database["public"]["Enums"]["group_buy_status"] | null
           title?: string | null
           updated_at?: string
@@ -1196,6 +1198,7 @@ export type Database = {
           created_at: string
           description: string | null
           flash_deal_ends_at: string | null
+          flash_deal_starts_at: string | null
           group_buy_price: number | null
           id: string
           is_active: boolean | null
@@ -1220,6 +1223,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           flash_deal_ends_at?: string | null
+          flash_deal_starts_at?: string | null
           group_buy_price?: number | null
           id?: string
           is_active?: boolean | null
@@ -1244,6 +1248,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           flash_deal_ends_at?: string | null
+          flash_deal_starts_at?: string | null
           group_buy_price?: number | null
           id?: string
           is_active?: boolean | null

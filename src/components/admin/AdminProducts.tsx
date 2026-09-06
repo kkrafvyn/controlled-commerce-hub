@@ -74,6 +74,7 @@ interface ProductForm {
   category_id: string;
   is_group_buy_eligible: boolean;
   is_flash_deal: boolean;
+  flash_deal_starts_at: string;
   flash_deal_ends_at: string;
   is_free_shipping: boolean;
   is_ready_now: boolean;
@@ -97,6 +98,7 @@ const defaultForm: ProductForm = {
   category_id: '',
   is_group_buy_eligible: false,
   is_flash_deal: false,
+  flash_deal_starts_at: '',
   flash_deal_ends_at: '',
   is_free_shipping: false,
   is_ready_now: false,
@@ -328,6 +330,9 @@ export function AdminProducts() {
         category_id: data.category_id || null,
         is_group_buy_eligible: data.is_group_buy_eligible,
         is_flash_deal: data.is_flash_deal,
+        flash_deal_starts_at: data.is_flash_deal && data.flash_deal_starts_at
+          ? new Date(data.flash_deal_starts_at).toISOString()
+          : null,
         flash_deal_ends_at: data.is_flash_deal && data.flash_deal_ends_at ? new Date(data.flash_deal_ends_at).toISOString() : null,
         is_free_shipping: data.is_free_shipping,
         is_ready_now: data.is_ready_now,
@@ -399,6 +404,9 @@ export function AdminProducts() {
         category_id: data.category_id || null,
         is_group_buy_eligible: data.is_group_buy_eligible,
         is_flash_deal: data.is_flash_deal,
+        flash_deal_starts_at: data.is_flash_deal && data.flash_deal_starts_at
+          ? new Date(data.flash_deal_starts_at).toISOString()
+          : null,
         flash_deal_ends_at: data.is_flash_deal && data.flash_deal_ends_at ? new Date(data.flash_deal_ends_at).toISOString() : null,
         is_free_shipping: data.is_free_shipping,
         is_ready_now: data.is_ready_now,
@@ -501,6 +509,9 @@ export function AdminProducts() {
         category_id: product.category_id || '',
         is_group_buy_eligible: product.is_group_buy_eligible || false,
         is_flash_deal: product.is_flash_deal || false,
+        flash_deal_starts_at: product.flash_deal_starts_at
+          ? new Date(product.flash_deal_starts_at).toISOString().slice(0, 16)
+          : '',
         flash_deal_ends_at: product.flash_deal_ends_at ? new Date(product.flash_deal_ends_at).toISOString().slice(0, 16) : '',
         is_free_shipping: product.is_free_shipping || false,
         is_ready_now: product.is_ready_now || false,
@@ -777,15 +788,25 @@ export function AdminProducts() {
               </div>
 
               {form.is_flash_deal && (
-                <div className="space-y-2">
-                  <Label htmlFor="flash_deal_ends_at">Flash Deal End Time</Label>
-                  <Input
-                    id="flash_deal_ends_at"
-                    type="datetime-local"
-                    value={form.flash_deal_ends_at}
-                    onChange={(e) => setForm({ ...form, flash_deal_ends_at: e.target.value })}
-                    min={new Date().toISOString().slice(0, 16)}
-                  />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="flash_deal_starts_at">Flash Deal Start Time</Label>
+                    <Input
+                      id="flash_deal_starts_at"
+                      type="datetime-local"
+                      value={form.flash_deal_starts_at}
+                      onChange={(e) => setForm({ ...form, flash_deal_starts_at: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="flash_deal_ends_at">Flash Deal End Time</Label>
+                    <Input
+                      id="flash_deal_ends_at"
+                      type="datetime-local"
+                      value={form.flash_deal_ends_at}
+                      onChange={(e) => setForm({ ...form, flash_deal_ends_at: e.target.value })}
+                    />
+                  </div>
                 </div>
               )}
 

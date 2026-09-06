@@ -30,6 +30,8 @@ interface ProductRow {
   is_active: boolean | null;
   is_free_shipping: boolean | null;
   is_flash_deal: boolean | null;
+  flash_deal_starts_at: string | null;
+  flash_deal_ends_at: string | null;
   is_fragile: boolean | null;
   reinforced_packaging_cost: number | null;
   allow_standard_packaging: boolean | null;
@@ -398,7 +400,7 @@ Deno.serve(async (req) => {
         supabase
           .from('products')
           .select(
-            'id, name, base_price, is_active, is_free_shipping, is_flash_deal, is_fragile, reinforced_packaging_cost, allow_standard_packaging, allow_reinforced_packaging',
+            'id, name, base_price, is_active, is_free_shipping, is_flash_deal, flash_deal_starts_at, flash_deal_ends_at, is_fragile, reinforced_packaging_cost, allow_standard_packaging, allow_reinforced_packaging',
           )
           .in('id', productIds),
         fetchCheckoutVariants(supabase, productIds),
@@ -430,6 +432,16 @@ Deno.serve(async (req) => {
       const product = productsById.get(item.productId);
       if (!product || product.is_active === false) {
         throw new Error('One of the selected products is no longer available.');
+      }
+
+      if (flow === 'buy_now' && product.is_flash_deal) {
+        const now = Date.now();
+        if (product.flash_deal_starts_at && new Date(product.flash_deal_starts_at).getTime() > now) {
+          throw new Error('This flash deal has not started yet.');
+        }
+        if (product.flash_deal_ends_at && new Date(product.flash_deal_ends_at).getTime() <= now) {
+          throw new Error('This flash deal has ended.');
+        }
       }
 
       const productRequiresVariant = (activeVariantCountByProduct.get(product.id) || 0) > 0;

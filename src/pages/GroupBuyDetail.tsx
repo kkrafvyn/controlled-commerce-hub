@@ -15,6 +15,8 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { Users, Clock, ArrowLeft, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
 import { canExtendGroupBuy, getGroupBuyDisplayStatus, getGroupBuyStatusLabel } from '@/lib/groupBuyTiming';
+import { hasScheduleStarted } from '@/lib/dealSchedule';
+import { formatStoreDateTime } from '@/lib/date-utils';
 import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
 import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +34,7 @@ interface GroupBuyDetailData {
   extension_hours: number | null;
   extension_used: boolean;
   group_price: number | null;
+  starts_at: string | null;
   expires_at: string;
   settings: Json;
   status: string | null;
@@ -223,6 +226,8 @@ export default function GroupBuyDetail() {
   const isExpired = displayStatus === 'expired';
   const isCancelled = displayStatus === 'cancelled' || displayStatus === 'closed';
   const isOpen = displayStatus === 'open';
+  const isScheduled = Boolean(groupBuy.starts_at && !hasScheduleStarted(groupBuy.starts_at));
+  const canJoin = isOpen && !isScheduled;
   const isHost = groupBuy.created_by === user?.id;
   const allowExtension = canExtendGroupBuy({
     currentParticipants: groupBuy.current_participants,
@@ -305,7 +310,9 @@ export default function GroupBuyDetail() {
                         <Clock className="h-4 w-4" />
                       )}
                       <span className="text-sm">
-                        {statusLabel}
+                        {isScheduled && groupBuy.starts_at
+                          ? `Starts ${formatStoreDateTime(groupBuy.starts_at)}`
+                          : statusLabel}
                       </span>
                     </div>
                   </div>
@@ -356,7 +363,7 @@ export default function GroupBuyDetail() {
               </p>
             </div>
 
-            {isOpen ? (
+            {canJoin ? (
               <div className="space-y-3">
                 <ExtendGroupBuyButton
                   canExtend={allowExtension}
@@ -394,6 +401,17 @@ export default function GroupBuyDetail() {
                   targetParticipants={groupBuy.min_participants}
                 />
               </div>
+            ) : isScheduled ? (
+              <Card className="border-border/70">
+                <CardContent className="p-4 text-center">
+                  <p className="font-medium text-foreground">
+                    This group buy opens on {groupBuy.starts_at ? formatStoreDateTime(groupBuy.starts_at) : 'soon'}.
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Check back when the start time arrives to join.
+                  </p>
+                </CardContent>
+              </Card>
             ) : (
               <div className="space-y-4 pt-1">
                 <Card className={isFilled ? 'border-primary/40' : 'border-destructive/50'}>
@@ -415,7 +433,7 @@ export default function GroupBuyDetail() {
                 </Button>
               </div>
             )}
-            {isOpen ? (
+            {canJoin || isScheduled ? (
               <Button asChild variant="outline" className="h-11 w-full rounded-xl">
                 <Link to={`/product/${groupBuy.product.id}`}>View Full Product Details</Link>
               </Button>

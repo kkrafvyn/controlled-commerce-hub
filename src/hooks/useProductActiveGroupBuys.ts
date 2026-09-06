@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { DEFAULT_GROUP_BUY_SETTINGS, resolveGroupBuySettings } from '@/lib/groupBuyConfig';
+import { isGroupBuyLive } from '@/lib/dealSchedule';
 import { getGroupBuyDisplayStatus } from '@/lib/groupBuyTiming';
 
 interface GroupBuyTier {
@@ -18,6 +19,7 @@ export interface ProductActiveGroupBuy {
   created_by: string;
   current_participants: number | null;
   discount_percentage: number | null;
+  starts_at: string | null;
   expires_at: string;
   extension_hours: number | null;
   extension_used: boolean | null;
@@ -57,6 +59,7 @@ export function useProductActiveGroupBuys({
           created_by,
           current_participants,
           discount_percentage,
+          starts_at,
           expires_at,
           extension_hours,
           extension_used,
@@ -71,6 +74,7 @@ export function useProductActiveGroupBuys({
         .eq('product_id', productId)
         .eq('status', 'open')
         .gt('expires_at', nowIso)
+        .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
         .order('expires_at', { ascending: true });
 
       if (error) {
@@ -131,6 +135,7 @@ export function useProductActiveGroupBuys({
       });
 
       return rows
+        .filter((row) => isGroupBuyLive(row))
         .filter((row) => resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, row.settings).visibleByDefault)
         .filter((row) => getGroupBuyDisplayStatus({
           currentParticipants: row.current_participants,
@@ -154,6 +159,7 @@ export function useProductActiveGroupBuys({
           current_participants: row.current_participants,
           discount_percentage:
             row.discount_percentage != null ? Number(row.discount_percentage) : null,
+          starts_at: row.starts_at,
           expires_at: row.expires_at,
           extension_hours: row.extension_hours,
           extension_used: row.extension_used,

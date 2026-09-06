@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database, Json } from '@/integrations/supabase/types';
 import { DEFAULT_GROUP_BUY_SETTINGS, resolveGroupBuySettings } from '@/lib/groupBuyConfig';
+import { isGroupBuyLive } from '@/lib/dealSchedule';
 import { getGroupBuyDisplayStatus } from '@/lib/groupBuyTiming';
 
 type GroupBuyRecord = Database['public']['Tables']['group_buys']['Row'];
@@ -18,6 +19,7 @@ export interface GroupBuyWithProduct {
   extension_hours: number | null;
   extension_used: boolean;
   group_price: number | null;
+  starts_at: string | null;
   expires_at: string;
   settings: Json;
   status: string | null;
@@ -48,6 +50,7 @@ interface GroupBuyQueryRow extends GroupBuyRecord {
 }
 
 async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
+  const nowIso = new Date().toISOString();
   const { data: groupBuys, error: groupBuysError } = await supabase
     .from('group_buys')
     .select(`
@@ -63,7 +66,8 @@ async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
       )
     `)
     .eq('status', 'open')
-    .gt('expires_at', new Date().toISOString())
+    .gt('expires_at', nowIso)
+    .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
     .order('expires_at');
 
   if (groupBuysError) throw groupBuysError;
@@ -100,6 +104,7 @@ async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
       extension_hours: gb.extension_hours ?? null,
       extension_used: gb.extension_used,
       group_price: gb.group_price != null ? Number(gb.group_price) : null,
+      starts_at: gb.starts_at,
       expires_at: gb.expires_at,
       settings: gb.settings,
       status: gb.status,
@@ -115,6 +120,7 @@ async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
       } : null,
     };
   })
+    .filter((groupBuy) => isGroupBuyLive(groupBuy))
     .filter((groupBuy) => resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, groupBuy.settings).visibleByDefault)
     .filter((groupBuy) => getGroupBuyDisplayStatus({
       currentParticipants: groupBuy.current_participants,

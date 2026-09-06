@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckCircle2,
+  Clock,
   Copy,
   Link as LinkIcon,
   Loader2,
@@ -45,6 +46,7 @@ import { PriceDropAlert } from '@/components/products/PriceDropAlert';
 import { BackInStockAlert } from '@/components/products/BackInStockAlert';
 import { RestockReservationDialog } from '@/components/products/RestockReservationDialog';
 import { BuyNowSheet } from '@/components/products/BuyNowSheet';
+import { hasScheduleStarted, isFlashDealLive } from '@/lib/dealSchedule';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { useProductActiveGroupBuys } from '@/hooks/useProductActiveGroupBuys';
@@ -125,6 +127,20 @@ export default function ProductDetail() {
     productId: id,
     userId: user?.id,
   });
+
+  const flashDealLive = useMemo(
+    () => (product ? isFlashDealLive(product) : false),
+    [product],
+  );
+  const flashDealScheduled = useMemo(
+    () =>
+      Boolean(
+        product?.is_flash_deal &&
+          product.flash_deal_starts_at &&
+          !hasScheduleStarted(product.flash_deal_starts_at),
+      ),
+    [product],
+  );
 
   // Track recently viewed
   useEffect(() => {
@@ -933,12 +949,18 @@ export default function ProductDetail() {
               <div className="space-y-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex flex-wrap gap-2">
-                    {product.is_flash_deal && (
+                    {flashDealLive && (
                       <Badge className="bg-destructive text-destructive-foreground">
                         <Zap className="mr-1 h-3 w-3" />
                         Flash Deal
                       </Badge>
                     )}
+                    {flashDealScheduled && product.flash_deal_starts_at ? (
+                      <Badge variant="secondary">
+                        <Clock className="mr-1 h-3 w-3" />
+                        Flash deal starts soon
+                      </Badge>
+                    ) : null}
                     {product.is_group_buy_eligible && (
                       <Badge variant="secondary" className="bg-accent text-accent-foreground">
                         <Users className="mr-1 h-3 w-3" />

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatStoreDate } from '@/lib/date-utils';
+import { toIsoFromDateTimeLocal, validateScheduleRange } from '@/lib/dealSchedule';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -93,6 +94,7 @@ interface GroupBuyForm {
   group_price: string;
   tier_participants: string;
   tier_group_price: string;
+  starts_at: string;
   expires_at: string;
 }
 
@@ -143,6 +145,7 @@ function buildDefaultForm(settings: GroupBuySettings): GroupBuyForm {
     group_price: '',
     tier_participants: '',
     tier_group_price: '',
+    starts_at: '',
     expires_at: buildDefaultExpiryLocal(settings),
   };
 }
@@ -329,6 +332,7 @@ export function AdminGroupBuys() {
           ? String(groupBuyTiers.find((tier) => tier.group_buy_id === groupBuy.id && tier.min_participants > groupBuy.min_participants)?.group_price)
           : '',
       expires_at: formatDateTimeLocal(groupBuy.expires_at),
+      starts_at: groupBuy.starts_at ? formatDateTimeLocal(groupBuy.starts_at) : '',
     });
     setIsDialogOpen(true);
   };
@@ -352,6 +356,17 @@ export function AdminGroupBuys() {
         maxParticipantsAllowed: maxParticipants ?? minParticipants,
       });
 
+      const startsAt = toIsoFromDateTimeLocal(data.starts_at);
+      const expiresAt = toIsoFromDateTimeLocal(data.expires_at);
+      if (!expiresAt) {
+        throw new Error('Set a valid expiry date.');
+      }
+
+      const scheduleError = validateScheduleRange(startsAt, expiresAt);
+      if (scheduleError) {
+        throw new Error(scheduleError);
+      }
+
       const { data: createdGroupBuy, error } = await supabase.from('group_buys').insert({
         product_id: data.product_id,
         title: data.title || null,
@@ -359,7 +374,8 @@ export function AdminGroupBuys() {
         max_participants: maxParticipants,
         group_price: groupPrice,
         discount_percentage: calculateDiscountPercentage(basePrice, data.group_price),
-        expires_at: data.expires_at,
+        starts_at: startsAt,
+        expires_at: expiresAt,
         created_by: user.id,
         status: 'open',
         settings: settingsSnapshot as unknown as Json,
@@ -417,6 +433,17 @@ export function AdminGroupBuys() {
         maxParticipantsAllowed: maxParticipants ?? minParticipants,
       });
 
+      const startsAt = toIsoFromDateTimeLocal(data.starts_at);
+      const expiresAt = toIsoFromDateTimeLocal(data.expires_at);
+      if (!expiresAt) {
+        throw new Error('Set a valid expiry date.');
+      }
+
+      const scheduleError = validateScheduleRange(startsAt, expiresAt);
+      if (scheduleError) {
+        throw new Error(scheduleError);
+      }
+
       const { error } = await supabase
         .from('group_buys')
         .update({
@@ -425,7 +452,8 @@ export function AdminGroupBuys() {
           max_participants: maxParticipants,
           group_price: data.group_price ? Number.parseFloat(data.group_price) : null,
           discount_percentage: calculateDiscountPercentage(basePrice, data.group_price),
-          expires_at: data.expires_at,
+          starts_at: startsAt,
+          expires_at: expiresAt,
           settings: settingsSnapshot as unknown as Json,
         })
         .eq('id', id);
@@ -868,6 +896,19 @@ export function AdminGroupBuys() {
       return;
     }
 
+    const startsAt = toIsoFromDateTimeLocal(form.starts_at);
+    const expiresAt = toIsoFromDateTimeLocal(form.expires_at);
+    if (!expiresAt) {
+      toast.error('Set a valid expiry date.');
+      return;
+    }
+
+    const scheduleError = validateScheduleRange(startsAt, expiresAt);
+    if (scheduleError) {
+      toast.error(scheduleError);
+      return;
+    }
+
     if (dialogMode === 'edit' && editingGroupBuyId) {
       updateMutation.mutate({ id: editingGroupBuyId, data: form });
       return;
@@ -1146,16 +1187,31 @@ export function AdminGroupBuys() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Expires At *</Label>
-              <Input
-                type="datetime-local"
-                value={form.expires_at}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, expires_at: event.target.value }))
-                }
-                required
-              />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Starts At</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.starts_at}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, starts_at: event.target.value }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank to start immediately.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Expires At *</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.expires_at}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, expires_at: event.target.value }))
+                  }
+                  required
+                />
+              </div>
             </div>
 
             <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
@@ -1769,6 +1825,7 @@ export function AdminGroupBuys() {
                   <TableHead>Title / Product</TableHead>
                   <TableHead>Participants</TableHead>
                   <TableHead>Group Price</TableHead>
+                  <TableHead>Starts</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -1846,6 +1903,9 @@ export function AdminGroupBuys() {
                             {savingsPercent > 0 ? `${savingsPercent}% off` : 'No discount'}
                           </p>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {groupBuy.starts_at ? formatStoreDate(groupBuy.starts_at) : 'Immediate'}
                       </TableCell>
                       <TableCell>
                         {formatStoreDate(groupBuy.expires_at)}

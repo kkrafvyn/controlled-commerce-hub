@@ -7,6 +7,7 @@ import { ProductCard } from '@/components/products/ProductCard';
 import { Badge } from '@/components/ui/badge';
 import { Zap, Clock, Loader2, Ban } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { isFlashDealLive } from '@/lib/dealSchedule';
 import { Product, ProductVariant } from '@/types';
 
 interface FlashDealImage {
@@ -32,6 +33,7 @@ interface FlashDealProductRecord {
   is_free_shipping: boolean | null;
   rating: number | null;
   review_count: number | null;
+  flash_deal_starts_at: string | null;
   flash_deal_ends_at: string | null;
   product_images: FlashDealImage[];
   product_variants: FlashDealVariant[];
@@ -116,6 +118,7 @@ export default function FlashDeals() {
   const { data: flashProducts, isLoading } = useQuery({
     queryKey: ['flash-deals'],
     queryFn: async () => {
+      const nowIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -127,6 +130,8 @@ export default function FlashDeals() {
           is_free_shipping,
           rating,
           review_count,
+          is_flash_deal,
+          flash_deal_starts_at,
           flash_deal_ends_at,
           product_images (image_url, order_index),
           product_variants (id, size, color, price_override, stock, is_active),
@@ -134,10 +139,11 @@ export default function FlashDeals() {
         `)
         .eq('is_flash_deal', true)
         .eq('is_active', true)
+        .or(`flash_deal_starts_at.is.null,flash_deal_starts_at.lte.${nowIso}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as FlashDealProductRecord[];
+      return ((data || []) as FlashDealProductRecord[]).filter((product) => isFlashDealLive(product));
     },
     enabled: flashDealsEnabled,
   });

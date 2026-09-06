@@ -14,6 +14,8 @@ export interface ProductWithDetails {
   group_buy_price: number | null;
   is_group_buy_eligible: boolean | null;
   is_flash_deal: boolean | null;
+  flash_deal_starts_at: string | null;
+  flash_deal_ends_at: string | null;
   is_free_shipping: boolean | null;
   is_active: boolean | null;
   expected_restock_date: string | null;
@@ -175,6 +177,8 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
     group_buy_price: product.group_buy_price != null ? Number(product.group_buy_price) : null,
     is_group_buy_eligible: product.is_group_buy_eligible,
     is_flash_deal: product.is_flash_deal,
+    flash_deal_starts_at: product.flash_deal_starts_at,
+    flash_deal_ends_at: product.flash_deal_ends_at,
     is_free_shipping: product.is_free_shipping,
     is_active: product.is_active,
     expected_restock_date: readExpectedRestockDate(product),
@@ -291,6 +295,8 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     group_buy_price: product.group_buy_price != null ? Number(product.group_buy_price) : null,
     is_group_buy_eligible: product.is_group_buy_eligible,
     is_flash_deal: product.is_flash_deal,
+    flash_deal_starts_at: product.flash_deal_starts_at,
+    flash_deal_ends_at: product.flash_deal_ends_at,
     is_free_shipping: product.is_free_shipping,
     is_active: product.is_active,
     expected_restock_date: readExpectedRestockDate(product),

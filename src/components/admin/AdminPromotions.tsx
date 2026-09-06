@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, Tag, Zap, Percent, DollarSign, Gift, Save } from 'lucide-react';
 import { formatStoreDate } from '@/lib/date-utils';
+import { toIsoFromDateTimeLocal, validateScheduleRange } from '@/lib/dealSchedule';
 import { couponSchema, validateForm } from '@/lib/validations/admin';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,7 +26,7 @@ type CouponRow = Tables<'coupons'>;
 type CouponInsert = TablesInsert<'coupons'>;
 type FlashDealProductRow = Pick<
   Tables<'products'>,
-  'id' | 'name' | 'base_price' | 'is_flash_deal' | 'is_active' | 'flash_deal_ends_at'
+  'id' | 'name' | 'base_price' | 'is_flash_deal' | 'is_active' | 'flash_deal_starts_at' | 'flash_deal_ends_at'
 >;
 type StoreSettingValue = Tables<'store_settings'>['value'];
 type StoreSettingsMap = Record<string, StoreSettingValue>;
@@ -70,7 +71,8 @@ export function AdminPromotions() {
     first_order_only: false,
   });
 
-  // Flash deal end times tracked locally
+  // Flash deal schedule tracked locally
+  const [flashStartTimes, setFlashStartTimes] = useState<Record<string, string>>({});
   const [flashEndTimes, setFlashEndTimes] = useState<Record<string, string>>({});
 
   // Referral settings
@@ -97,7 +99,7 @@ export function AdminPromotions() {
     queryFn: async (): Promise<FlashDealProductRow[]> => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, base_price, is_flash_deal, is_active, flash_deal_ends_at')
+        .select('id, name, base_price, is_flash_deal, is_active, flash_deal_starts_at, flash_deal_ends_at')
         .eq('is_active', true)
         .order('name');
       if (error) throw error;
@@ -132,16 +134,21 @@ export function AdminPromotions() {
     }
   }, [storeSettings]);
 
-  // Initialize flash end times
+  // Initialize flash schedule times
   useEffect(() => {
     if (flashDealProducts) {
-      const times: Record<string, string> = {};
+      const startTimes: Record<string, string> = {};
+      const endTimes: Record<string, string> = {};
       flashDealProducts.forEach(p => {
+        if (p.flash_deal_starts_at) {
+          startTimes[p.id] = new Date(p.flash_deal_starts_at).toISOString().slice(0, 16);
+        }
         if (p.flash_deal_ends_at) {
-          times[p.id] = new Date(p.flash_deal_ends_at).toISOString().slice(0, 16);
+          endTimes[p.id] = new Date(p.flash_deal_ends_at).toISOString().slice(0, 16);
         }
       });
-      setFlashEndTimes(times);
+      setFlashStartTimes(startTimes);
+      setFlashEndTimes(endTimes);
     }
   }, [flashDealProducts]);
 
@@ -252,7 +259,10 @@ export function AdminPromotions() {
   const toggleFlashDeal = useMutation({
     mutationFn: async ({ id, is_flash_deal }: { id: string; is_flash_deal: boolean }) => {
       const update: TablesUpdate<'products'> = { is_flash_deal };
-      if (!is_flash_deal) update.flash_deal_ends_at = null;
+      if (!is_flash_deal) {
+        update.flash_deal_starts_at = null;
+        update.flash_deal_ends_at = null;
+      }
       const { error } = await supabase.from('products').update(update).eq('id', id);
       if (error) throw error;
 
@@ -274,9 +284,20 @@ export function AdminPromotions() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const saveFlashEndTime = useMutation({
-    mutationFn: async ({ id, flash_deal_ends_at }: { id: string; flash_deal_ends_at: string }) => {
-      const { error } = await supabase.from('products').update({ flash_deal_ends_at }).eq('id', id);
+  const saveFlashSchedule = useMutation({
+    mutationFn: async ({
+      id,
+      flash_deal_starts_at,
+      flash_deal_ends_at,
+    }: {
+      id: string;
+      flash_deal_starts_at: string | null;
+      flash_deal_ends_at: string | null;
+    }) => {
+      const { error } = await supabase
+        .from('products')
+        .update({ flash_deal_starts_at, flash_deal_ends_at })
+        .eq('id', id);
       if (error) throw error;
 
       const product = flashDealProducts?.find((entry) => entry.id === id);
@@ -285,13 +306,16 @@ export function AdminPromotions() {
         action: 'flash_deal.schedule_updated',
         entityType: 'product',
         entityId: id,
-        summary: `Updated flash deal end time for ${product?.name || id}.`,
-        metadata: { flash_deal_ends_at },
+        summary: `Updated flash deal schedule for ${product?.name || id}.`,
+        metadata: { flash_deal_starts_at, flash_deal_ends_at },
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-flash-deals-products'] });
-      toast.success('Flash deal end time saved');
+      queryClient.invalidateQueries({ queryKey: ['admin-flash-deals'] });
+      queryClient.invalidateQueries({ queryKey: ['flash-deals'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Flash deal schedule saved');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -606,7 +630,7 @@ export function AdminPromotions() {
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           <p className="text-sm text-muted-foreground mb-4">
-            Toggle flash deal status and set end times. Flash deal products are highlighted on the storefront.
+            Toggle flash deal status and set start/end times. Flash deal products are highlighted on the storefront.
           </p>
           <div className="space-y-3">
             {flashDealProducts?.map((product) => (
@@ -628,6 +652,11 @@ export function AdminPromotions() {
                       onCheckedChange={(checked) => {
                         toggleFlashDeal.mutate({ id: product.id, is_flash_deal: checked });
                         if (!checked) {
+                          setFlashStartTimes(prev => {
+                            const next = { ...prev };
+                            delete next[product.id];
+                            return next;
+                          });
                           setFlashEndTimes(prev => {
                             const next = { ...prev };
                             delete next[product.id];
@@ -639,7 +668,16 @@ export function AdminPromotions() {
                   </div>
                 </div>
                 {product.is_flash_deal && (
-                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-xs">Flash Deal Starts At</Label>
+                      <Input
+                        type="datetime-local"
+                        value={flashStartTimes[product.id] || ''}
+                        onChange={e => setFlashStartTimes(prev => ({ ...prev, [product.id]: e.target.value }))}
+                        className="h-10 max-w-full text-center sm:h-9"
+                      />
+                    </div>
                     <div className="min-w-0 space-y-1">
                       <Label className="text-xs">Flash Deal Ends At</Label>
                       <Input
@@ -654,11 +692,26 @@ export function AdminPromotions() {
                       variant="outline"
                       className="w-full sm:w-auto"
                       onClick={() => {
-                        const val = flashEndTimes[product.id];
-                        if (!val) { toast.error('Set an end time first'); return; }
-                        saveFlashEndTime.mutate({ id: product.id, flash_deal_ends_at: new Date(val).toISOString() });
+                        const startVal = flashStartTimes[product.id];
+                        const endVal = flashEndTimes[product.id];
+                        const startsAt = startVal ? new Date(startVal).toISOString() : null;
+                        const endsAt = endVal ? new Date(endVal).toISOString() : null;
+                        const scheduleError = validateScheduleRange(startsAt, endsAt);
+                        if (scheduleError) {
+                          toast.error(scheduleError);
+                          return;
+                        }
+                        if (!endsAt) {
+                          toast.error('Set an end time first');
+                          return;
+                        }
+                        saveFlashSchedule.mutate({
+                          id: product.id,
+                          flash_deal_starts_at: startsAt,
+                          flash_deal_ends_at: endsAt,
+                        });
                       }}
-                      disabled={saveFlashEndTime.isPending}
+                      disabled={saveFlashSchedule.isPending}
                     >
                       <Save className="h-4 w-4 mr-1" />
                       Save
