@@ -1,0 +1,17 @@
+﻿Status: 200
+Strict-Transport-Security: max-age=63072000
+Content-Security-Policy: MISSING
+X-Frame-Options: MISSING
+X-Content-Type-Options: MISSING
+Referrer-Policy: MISSING
+Permissions-Policy: MISSING
+Cross-Origin-Opener-Policy: MISSING
+Cross-Origin-Resource-Policy: MISSING
+/.env -> 200
+/admin -> 200
+/api -> 200
+/robots.txt -> 200
+/sitemap.xml -> 200
+/.git/config -> 200
+/package.json -> 200
+/wp-admin -> 200

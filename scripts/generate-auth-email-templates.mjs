@@ -13,19 +13,20 @@ const COPYRIGHT_YEAR = '2026';
 const SUPPORT_EMAIL = 'support@ajynworld.com';
 const SUPPORT_PHONE = '+233 508664788';
 const WHATSAPP_URL = 'https://wa.me/233508664788';
+const APP_URL = 'https://www.ajynworld.com';
 const LOGO_LIGHT = 'https://www.ajynworld.com/ajyn-wordmark.svg';
 const LOGO_DARK = 'https://www.ajynworld.com/ajyn-wordmark-dark.svg';
 
 const logoMarkHtml = `
-    <img class="ajyn-logo-mark ajyn-wordmark-light" src="${LOGO_LIGHT}" width="110" height="48" alt="AJYN" style="display:block;width:110px;height:48px;border:0;outline:none;text-decoration:none;object-fit:contain;">
-    <img class="ajyn-logo-mark ajyn-wordmark-dark" src="${LOGO_DARK}" width="110" height="48" alt="AJYN" style="display:none;width:110px;height:48px;border:0;outline:none;text-decoration:none;object-fit:contain;">`;
+    <img class="ajyn-logo-mark ajyn-wordmark-light" src="${LOGO_LIGHT}" width="118" height="52" alt="AJYN" style="display:block;width:118px;height:52px;border:0;outline:none;text-decoration:none;object-fit:contain;">
+    <img class="ajyn-logo-mark ajyn-wordmark-dark" src="${LOGO_DARK}" width="118" height="52" alt="AJYN" style="display:none;width:118px;height:52px;border:0;outline:none;text-decoration:none;object-fit:contain;">`;
 
 const footerMarkHtml = `
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-footer-mark-wrap ajyn-footer-mark-bg ajyn-soft-bg" bgcolor="#f7f4f2" style="width:100%;max-width:100%;margin:0 auto;border-collapse:separate;border-radius:8px;background:#f7f4f2;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-footer-mark-wrap ajyn-footer-mark-bg ajyn-soft-bg" bgcolor="#f8f3ee" style="width:100%;max-width:280px;margin:0 auto;border-collapse:separate;border-radius:10px;background:#f8f3ee;">
       <tr>
-        <td align="center" style="padding:18px 24px;">
-          <img class="ajyn-footer-mark-img ajyn-wordmark-light" src="${LOGO_LIGHT}" width="110" height="48" alt="AJYN" style="display:block;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
-          <img class="ajyn-footer-mark-img ajyn-wordmark-dark" src="${LOGO_DARK}" width="110" height="48" alt="AJYN" style="display:none;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+        <td align="center" style="padding:16px 20px;">
+          <img class="ajyn-footer-mark-img ajyn-wordmark-light" src="${LOGO_LIGHT}" width="100" height="44" alt="AJYN" style="display:block;width:100px;height:44px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+          <img class="ajyn-footer-mark-img ajyn-wordmark-dark" src="${LOGO_DARK}" width="100" height="44" alt="AJYN" style="display:none;width:100px;height:44px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
         </td>
       </tr>
     </table>`;
@@ -51,7 +52,7 @@ function buildAuthEmailHtml(config) {
   const preheaderRow =
     preheaderHref && preheaderLabel
       ? `<tr class="ajyn-preheader">
-              <td class="ajyn-preheader-cell ajyn-light-bg ajyn-font-sans" bgcolor="#ffffff" style="padding:12px 44px 0;background:#ffffff;">
+              <td class="ajyn-preheader-cell ajyn-light-bg ajyn-font-sans" bgcolor="#ffffff" style="padding:14px 40px 0;background:#ffffff;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
                     <td align="left" class="ajyn-preheader-left ajyn-text-muted ajyn-font-sans" style="font-size:11px;line-height:1.4;">Thank you for shopping with ${BRAND_NAME}.</td>
@@ -67,15 +68,15 @@ function buildAuthEmailHtml(config) {
   const statusRow =
     statusTitle || statusText
       ? `<tr>
-                    <td class="ajyn-status-row" style="padding-bottom:19px;">
-                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-status-card ajyn-soft-bg" bgcolor="#f7f4f2" style="background:#f7f4f2;border-radius:6px;padding:16px 19px;border-collapse:separate;">
+                    <td class="ajyn-status-row" style="padding-bottom:20px;">
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-status-card ajyn-soft-bg" bgcolor="#f8f3ee" style="background:#f8f3ee;border:1px solid #eadfd4;border-radius:12px;padding:18px 20px;border-collapse:separate;">
                         <tr>
                           <td width="64" valign="middle" class="ajyn-status-icon-cell">
                             <div class="ajyn-status-check" style="width:48px;height:48px;border:2px solid #c18c5d;border-radius:50%;text-align:center;line-height:46px;font-size:24px;color:#c18c5d;">&#10003;</div>
                           </td>
                           <td valign="middle" class="ajyn-status-copy ajyn-text-dark ajyn-font-sans">
-                            ${statusTitle ? `<div class="ajyn-status-title ajyn-text-dark ajyn-gmail-text ajyn-font-sans" style="font-size:14px;line-height:1.25;font-weight:700;padding-bottom:4px;">${statusTitle}</div>` : ''}
-                            ${statusText ? `<div class="ajyn-status-text ajyn-text-dark ajyn-gmail-text ajyn-font-sans" style="font-size:11px;line-height:1.45;">${statusText}</div>` : ''}
+                            ${statusTitle ? `<div class="ajyn-status-title ajyn-text-dark ajyn-gmail-text ajyn-font-sans" style="font-size:15px;line-height:1.3;font-weight:700;padding-bottom:4px;">${statusTitle}</div>` : ''}
+                            ${statusText ? `<div class="ajyn-status-text ajyn-text-dark ajyn-gmail-text ajyn-font-sans" style="font-size:12px;line-height:1.5;">${statusText}</div>` : ''}
                           </td>
                         </tr>
                       </table>
@@ -85,7 +86,7 @@ function buildAuthEmailHtml(config) {
 
   const bodyContentRow = bodyHtml
     ? `<tr>
-                    <td class="ajyn-copy ajyn-text-dark ajyn-font-sans" style="font-size:13px;line-height:1.6;padding-bottom:19px;">
+                    <td class="ajyn-copy ajyn-text-dark ajyn-font-sans" style="font-size:14px;line-height:1.65;padding-bottom:20px;">
                       <div class="ajyn-gmail-text">${bodyHtml}</div>
                     </td>
                   </tr>`
@@ -93,7 +94,7 @@ function buildAuthEmailHtml(config) {
 
   const closingRow = closing
     ? `<tr>
-                    <td class="ajyn-copy ajyn-closing ajyn-text-dark ajyn-font-sans" style="font-size:13px;line-height:1.6;padding-bottom:19px;">
+                    <td class="ajyn-copy ajyn-closing ajyn-text-dark ajyn-font-sans" style="font-size:14px;line-height:1.65;padding-bottom:20px;">
                       <span class="ajyn-gmail-text">${closing}</span>
                     </td>
                   </tr>`
@@ -102,8 +103,8 @@ function buildAuthEmailHtml(config) {
   const ctaRow =
     ctaLabel && ctaHref
       ? `<tr>
-                    <td align="center" class="ajyn-cta-cell" style="padding-bottom:23px;">
-                      <a href="${ctaHref}" class="ajyn-cta ajyn-black-bg ajyn-text-orange ajyn-font-sans" style="display:block;width:225px;max-width:100%;box-sizing:border-box;background:#000000;color:#c18c5d;font-weight:700;letter-spacing:1.9px;padding:14px 18px;border-radius:5px;font-size:12px;line-height:1;text-transform:uppercase;text-align:center;">${ctaLabel}</a>
+                    <td align="center" class="ajyn-cta-cell" style="padding-bottom:28px;">
+                      <a href="${ctaHref}" class="ajyn-cta ajyn-black-bg ajyn-text-orange ajyn-font-sans" style="display:inline-block;min-width:240px;max-width:100%;box-sizing:border-box;background:#111111;color:#c18c5d;font-weight:700;letter-spacing:1.8px;padding:16px 28px;border-radius:8px;font-size:12px;line-height:1;text-transform:uppercase;text-align:center;">${ctaLabel}</a>
                     </td>
                   </tr>`
       : '';
@@ -121,48 +122,55 @@ function buildAuthEmailHtml(config) {
 ${AJYN_EMAIL_STYLES}
     </style>
   </head>
-  <body class="body ajyn-body-bg ajyn-font-sans" style="margin:0;padding:0;background:#f5f5f5;color-scheme:light dark;">
+  <body class="body ajyn-body-bg ajyn-font-sans" style="margin:0;padding:0;background:#f3eee8;color-scheme:light dark;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${previewText}</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-body-bg" bgcolor="#f5f5f5" style="background:#f5f5f5;border-collapse:collapse;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-body-bg" bgcolor="#f3eee8" style="background:#f3eee8;border-collapse:collapse;">
       <tr>
-        <td align="center" class="ajyn-shell" bgcolor="#f5f5f5" style="padding:14px 0;background:#f5f5f5;">
-          <table role="presentation" width="600" cellspacing="0" cellpadding="0" class="ajyn-card ajyn-light-bg" bgcolor="#ffffff" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #eeeeee;border-radius:4px;overflow:hidden;">
+        <td align="center" class="ajyn-shell" bgcolor="#f3eee8" style="padding:28px 12px;background:#f3eee8;">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" class="ajyn-card ajyn-light-bg" bgcolor="#ffffff" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #e8dfd6;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td class="ajyn-accent-bar" bgcolor="#111111" style="background:#111111;padding:0;height:6px;font-size:0;line-height:0;">
+                <div class="ajyn-accent-line" style="height:3px;background:#c18c5d;font-size:0;line-height:0;">&nbsp;</div>
+              </td>
+            </tr>
             ${preheaderRow}
             <tr>
-              <td class="ajyn-container ajyn-light-bg" bgcolor="#ffffff" style="padding:28px 44px 0;background:#ffffff;">
+              <td class="ajyn-container ajyn-light-bg" bgcolor="#ffffff" style="padding:32px 40px 0;background:#ffffff;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-header-row">
                   <tr>
                     <td class="ajyn-logo-cell ajyn-light-bg" align="left" valign="middle" bgcolor="#ffffff" style="background:#ffffff;">
                       <div class="ajyn-logo-lockup" style="display:inline-block;text-align:left;">${logoMarkHtml}</div>
                     </td>
-                    <td class="ajyn-ref-cell ajyn-text-dark ajyn-light-bg ajyn-font-sans" align="right" valign="middle" bgcolor="#ffffff" style="background:#ffffff;">${referenceHtml}</td>
+                    <td class="ajyn-ref-cell ajyn-text-dark ajyn-light-bg ajyn-font-sans" align="right" valign="middle" bgcolor="#ffffff" style="background:#ffffff;">
+                      <span class="ajyn-ref-chip ajyn-text-dark">${referenceHtml}</span>
+                    </td>
                   </tr>
                 </table>
-                <div class="ajyn-desktop-divider" style="border-top:1px solid #ece7e2;font-size:0;line-height:0;">&nbsp;</div>
+                <div class="ajyn-desktop-divider" style="border-top:1px solid #eadfd4;font-size:0;line-height:0;">&nbsp;</div>
               </td>
             </tr>
             <tr>
-              <td align="center" class="ajyn-hero-wrap ajyn-light-bg" bgcolor="#ffffff" style="padding:20px 44px 10px;background:#ffffff;">
-                <div class="ajyn-hero-icon ajyn-hero-bg" style="width:60px;height:60px;border-radius:50%;background:#f2e9e1;display:inline-block;text-align:center;">
-                  <span class="ajyn-package-icon-text" aria-hidden="true" style="display:block;margin:13px auto 0;color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:32px;">&#9633;</span>
+              <td align="center" class="ajyn-hero-wrap ajyn-light-bg" bgcolor="#ffffff" style="padding:24px 40px 12px;background:#ffffff;">
+                <div class="ajyn-hero-icon ajyn-hero-bg" style="width:68px;height:68px;border-radius:50%;border:1px solid #eadfd4;background:#f4ebe3;display:inline-block;text-align:center;">
+                  <span class="ajyn-package-icon-text" aria-hidden="true" style="display:block;margin:16px auto 0;color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:32px;line-height:34px;">&#9633;</span>
                 </div>
               </td>
             </tr>
             <tr>
-              <td align="center" class="ajyn-title ajyn-text-dark ajyn-light-bg ajyn-font-serif" bgcolor="#ffffff" style="padding:0 44px 18px;background:#ffffff;font-size:21px;line-height:1.25;font-weight:700;">
+              <td align="center" class="ajyn-title ajyn-text-dark ajyn-light-bg ajyn-font-serif" bgcolor="#ffffff" style="padding:0 40px 18px;background:#ffffff;font-size:24px;line-height:1.3;font-weight:700;">
                 <span class="ajyn-gmail-text">${title}</span>
               </td>
             </tr>
             <tr>
-              <td class="ajyn-body ajyn-light-bg ajyn-font-sans" bgcolor="#ffffff" style="padding:0 72px 0;background:#ffffff;">
+              <td class="ajyn-body ajyn-light-bg ajyn-font-sans" bgcolor="#ffffff" style="padding:0 48px 0;background:#ffffff;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td class="ajyn-copy ajyn-text-dark ajyn-font-sans" style="font-size:13px;line-height:1.6;padding-bottom:11px;">
+                    <td class="ajyn-copy ajyn-text-dark ajyn-font-sans" style="font-size:14px;line-height:1.65;padding-bottom:12px;">
                       <span class="ajyn-gmail-text">Hello there,</span>
                     </td>
                   </tr>
                   <tr>
-                    <td class="ajyn-copy ajyn-text-dark ajyn-font-sans" style="font-size:13px;line-height:1.6;padding-bottom:11px;">
+                    <td class="ajyn-copy ajyn-text-dark ajyn-font-sans" style="font-size:14px;line-height:1.65;padding-bottom:12px;">
                       <span class="ajyn-gmail-text">${intro}</span>
                     </td>
                   </tr>
@@ -174,35 +182,44 @@ ${AJYN_EMAIL_STYLES}
               </td>
             </tr>
             <tr>
-              <td class="ajyn-divider-cell ajyn-light-bg" bgcolor="#ffffff" style="padding:0 44px;background:#ffffff;">
-                <hr style="border:none;border-top:1px solid #ece7e2;margin:0;">
+              <td class="ajyn-divider-cell ajyn-light-bg" bgcolor="#ffffff" style="padding:0 40px;background:#ffffff;">
+                <hr style="border:none;border-top:1px solid #eadfd4;margin:0;">
               </td>
             </tr>
             <tr>
-              <td align="center" class="ajyn-help ajyn-light-bg" bgcolor="#ffffff" style="padding:17px 42px 15px;background:#ffffff;">
-                <div class="ajyn-help-icon" style="padding-bottom:4px;color:#c18c5d;font-size:22px;line-height:1;"><span class="ajyn-support-icon-text" aria-hidden="true" style="display:block;margin:0 auto;color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:22px;">?</span></div>
-                <div class="ajyn-help-title ajyn-text-dark ajyn-gmail-text ajyn-font-serif" style="font-size:14px;line-height:1.25;font-weight:700;">Need help?</div>
-                <div class="ajyn-help-subtitle ajyn-text-dark ajyn-gmail-text ajyn-font-sans" style="font-size:11px;line-height:1.35;padding-bottom:11px;">We're here for you.</div>
+              <td align="center" class="ajyn-help ajyn-light-bg" bgcolor="#ffffff" style="padding:22px 40px 20px;background:#ffffff;">
+                <div class="ajyn-help-icon" style="padding-bottom:6px;color:#c18c5d;font-size:22px;line-height:1;"><span class="ajyn-support-icon-text" aria-hidden="true" style="display:block;margin:0 auto;color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:22px;">?</span></div>
+                <div class="ajyn-help-title ajyn-text-dark ajyn-gmail-text ajyn-font-serif" style="font-size:16px;line-height:1.3;font-weight:700;">Need help?</div>
+                <div class="ajyn-help-subtitle ajyn-text-dark ajyn-gmail-text ajyn-font-sans" style="font-size:12px;line-height:1.4;padding-bottom:14px;">Our team is ready to assist with your order.</div>
                 <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="border-collapse:collapse;">
                   <tr>
-                    <td class="ajyn-contact ajyn-text-dark ajyn-font-sans" style="font-size:11px;line-height:1.3;"><span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1;">@</span>&nbsp; <a href="mailto:${SUPPORT_EMAIL}" class="ajyn-gmail-text">${SUPPORT_EMAIL}</a></td>
+                    <td class="ajyn-contact ajyn-text-dark ajyn-font-sans" style="font-size:12px;line-height:1.4;"><span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1;">@</span>&nbsp; <a href="mailto:${SUPPORT_EMAIL}" class="ajyn-gmail-text">${SUPPORT_EMAIL}</a></td>
                     <td class="ajyn-contact-divider" width="28" style="font-size:0;line-height:0;">&nbsp;</td>
-                    <td class="ajyn-contact ajyn-text-dark ajyn-font-sans" style="font-size:11px;line-height:1.3;"><span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;line-height:1;">WA</span>&nbsp; <a href="${WHATSAPP_URL}" class="ajyn-gmail-text">${SUPPORT_PHONE}</a></td>
+                    <td class="ajyn-contact ajyn-text-dark ajyn-font-sans" style="font-size:12px;line-height:1.4;"><span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;line-height:1;">WA</span>&nbsp; <a href="${WHATSAPP_URL}" class="ajyn-gmail-text">${SUPPORT_PHONE}</a></td>
                   </tr>
                 </table>
               </td>
             </tr>
             <tr>
-              <td class="ajyn-footer ajyn-footer-bg" bgcolor="#ffffff" style="padding:18px 44px 20px;background:#ffffff;">
+              <td class="ajyn-footer ajyn-footer-bg" bgcolor="#111111" style="padding:28px 36px 26px;background:#111111;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                   <tr>
-                    <td align="center" style="padding-bottom:14px;">${footerMarkHtml}</td>
+                    <td align="center" style="padding-bottom:16px;">${footerMarkHtml}</td>
                   </tr>
                   <tr>
-                    <td align="center" class="ajyn-footer-copy ajyn-text-muted ajyn-font-sans" style="font-size:11px;line-height:1.5;padding-bottom:8px;">${footerNote}</td>
+                    <td align="center" class="ajyn-footer-links ajyn-font-sans" style="font-size:12px;line-height:1.6;padding-bottom:14px;">
+                      <a href="${APP_URL}/products" class="ajyn-footer-link">Shop</a>
+                      <span class="ajyn-text-on-dark-muted" style="padding:0 10px;">&middot;</span>
+                      <a href="${APP_URL}/my-orders" class="ajyn-footer-link">Orders</a>
+                      <span class="ajyn-text-on-dark-muted" style="padding:0 10px;">&middot;</span>
+                      <a href="${APP_URL}/help" class="ajyn-footer-link">Help</a>
+                    </td>
                   </tr>
                   <tr>
-                    <td align="center" class="ajyn-footer-legal ajyn-text-muted ajyn-font-sans" style="font-size:10px;line-height:1.5;">&copy; ${COPYRIGHT_YEAR} ${BRAND_NAME}. All rights reserved.</td>
+                    <td align="center" class="ajyn-footer-copy ajyn-text-on-dark-muted ajyn-font-sans" style="font-size:12px;line-height:1.5;padding-bottom:8px;">${footerNote}</td>
+                  </tr>
+                  <tr>
+                    <td align="center" class="ajyn-footer-legal ajyn-text-on-dark-muted ajyn-font-sans" style="font-size:11px;line-height:1.5;">&copy; ${COPYRIGHT_YEAR} ${BRAND_NAME}. All rights reserved.</td>
                   </tr>
                 </table>
               </td>
@@ -296,7 +313,7 @@ const authTemplates = [
     title: 'Verify It Is You',
     intro: 'Use this code to continue:',
     bodyHtml:
-      '<div class="ajyn-text-dark ajyn-font-sans" style="font-size:34px;letter-spacing:0.18em;font-weight:700;background:#f7f4f2;border-radius:6px;padding:18px;margin:18px 0;text-align:center;">{{ .Token }}</div><p class="ajyn-text-muted ajyn-font-sans" style="margin:0;font-size:12px;line-height:1.6;">This code expires shortly. Do not share it with anyone.</p>',
+      '<div class="ajyn-text-dark ajyn-font-sans" style="font-size:34px;letter-spacing:0.18em;font-weight:700;background:#f8f3ee;border:1px solid #eadfd4;border-radius:12px;padding:18px;margin:18px 0;text-align:center;">{{ .Token }}</div><p class="ajyn-text-muted ajyn-font-sans" style="margin:0;font-size:12px;line-height:1.6;">This code expires shortly. Do not share it with anyone.</p>',
     preheaderLabel: 'Security code',
     preheaderHref: '{{ .SiteURL }}',
   },

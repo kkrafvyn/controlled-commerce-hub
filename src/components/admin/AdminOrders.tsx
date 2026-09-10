@@ -658,7 +658,7 @@ export function AdminOrders() {
       }
 
       let variantProductMap = new Map<string, string>();
-      let variantImageMap = new Map<string, string>();
+      const variantImageMap = new Map<string, string>();
       if (variantIds.length > 0) {
         const { data: variantData } = await supabase
           .from('product_variants')
