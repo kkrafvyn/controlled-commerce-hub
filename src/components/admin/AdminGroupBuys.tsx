@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatStoreDate } from '@/lib/date-utils';
-import { toIsoFromDateTimeLocal, validateScheduleRange } from '@/lib/dealSchedule';
+import { toIsoFromDateTimeLocal, toDateTimeLocalValue, validateScheduleRange } from '@/lib/dealSchedule';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -156,10 +156,7 @@ function generateAjynOrderNumber() {
 }
 
 function formatDateTimeLocal(value: string): string {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset();
-  const localDate = new Date(date.getTime() - offset * 60 * 1000);
-  return localDate.toISOString().slice(0, 16);
+  return toDateTimeLocalValue(value);
 }
 
 function calculateDiscountPercentage(basePrice: number, groupPriceInput: string): number {

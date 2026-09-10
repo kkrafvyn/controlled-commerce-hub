@@ -5,6 +5,7 @@ import { Product } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DealCountdown } from '@/components/shared/DealCountdown';
 import { useWishlist } from '@/hooks/useWishlist';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompare } from '@/contexts/CompareContext';
@@ -21,9 +22,16 @@ interface ProductCardProps {
   product: ExtendedProduct;
   onQuickView?: (product: ExtendedProduct) => void;
   viewMode?: 'grid' | 'list';
+  /** Live countdown target. Shown at the bottom of the image so it never overlaps badges/actions. */
+  countdownEndsAt?: string | null;
 }
 
-export function ProductCard({ product, onQuickView, viewMode = 'grid' }: ProductCardProps) {
+export function ProductCard({
+  product,
+  onQuickView,
+  viewMode = 'grid',
+  countdownEndsAt = null,
+}: ProductCardProps) {
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
   const { isInWishlist, toggleWishlist } = useWishlist();
@@ -98,13 +106,22 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
                     Ready
                   </Badge>
                 )}
-                {product.isFlashDeal && (
+                {product.isFlashDeal && !countdownEndsAt && (
                   <Badge className="bg-destructive text-destructive-foreground text-[10px] px-1.5 py-0.5">
                     <Zap className="h-2.5 w-2.5 mr-0.5" />
                     Flash
                   </Badge>
                 )}
               </div>
+              {countdownEndsAt ? (
+                <div className="absolute inset-x-2 bottom-2 z-[5]">
+                  <DealCountdown
+                    targetAt={countdownEndsAt}
+                    compact
+                    className="w-fit max-w-full shadow-sm"
+                  />
+                </div>
+              ) : null}
             </div>
             {/* Content */}
             <CardContent className="flex min-w-0 flex-1 flex-col justify-between overflow-hidden p-3 sm:p-4">
@@ -188,21 +205,21 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
             )}
           </div>
           {/* Badges */}
-          <div className="absolute top-2 left-2 flex flex-col gap-1">
+          <div className="absolute top-2 left-2 z-[5] flex max-w-[calc(100%-3.5rem)] flex-col gap-1">
             {product.isReadyNow && (
-              <Badge className="max-w-[5rem] truncate bg-primary px-1.5 py-0.5 text-[9px] text-primary-foreground sm:max-w-none sm:text-[10px]">
+              <Badge className="max-w-full truncate bg-primary px-1.5 py-0.5 text-[9px] text-primary-foreground sm:text-[10px]">
                 <Clock className="h-2.5 w-2.5 mr-0.5" />
                 Ready
               </Badge>
             )}
-            {product.isFlashDeal && (
-              <Badge className="max-w-[5rem] truncate bg-destructive px-1.5 py-0.5 text-[9px] text-destructive-foreground sm:max-w-none sm:text-[10px]">
+            {product.isFlashDeal && !countdownEndsAt && (
+              <Badge className="max-w-full truncate bg-destructive px-1.5 py-0.5 text-[9px] text-destructive-foreground sm:text-[10px]">
                 <Zap className="h-2.5 w-2.5 mr-0.5" />
                 Flash
               </Badge>
             )}
             {product.isGroupBuyEligible && (
-              <Badge variant="secondary" className="max-w-[5rem] truncate bg-accent px-1.5 py-0.5 text-[9px] text-accent-foreground sm:max-w-none sm:text-[10px]">
+              <Badge variant="secondary" className="max-w-full truncate bg-accent px-1.5 py-0.5 text-[9px] text-accent-foreground sm:text-[10px]">
                 <Users className="h-2.5 w-2.5 mr-0.5" />
                 Group
               </Badge>
@@ -214,6 +231,15 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
               </Badge>
             )}
           </div>
+          {countdownEndsAt ? (
+            <div className="absolute inset-x-2 bottom-2 z-[5]">
+              <DealCountdown
+                targetAt={countdownEndsAt}
+                compact
+                className="w-fit max-w-full shadow-sm"
+              />
+            </div>
+          ) : null}
         </div>
         <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-2.5 sm:p-4">
           <p className="truncate text-[11px] text-muted-foreground sm:text-xs">{product.category}</p>

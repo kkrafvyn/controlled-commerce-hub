@@ -36,6 +36,7 @@ import { ProductImageUpload, uploadProductImages } from './ProductImageUpload';
 import { ProductVariantsManager, VariantData } from './ProductVariantsManager';
 import { ProductShippingRules, ShippingRuleData } from './ProductShippingRules';
 import { productSchema, validateForm } from '@/lib/validations/admin';
+import { toDateTimeLocalValue, toIsoFromDateTimeLocal } from '@/lib/dealSchedule';
 import { formatShippingPricesForForm, serializeShippingPrices } from '@/lib/shipping';
 import { resolveImageContentType, validateProductImageFile } from '@/lib/image-upload';
 import { fetchProductVariants, isMissingShippingPricesColumnError } from '@/lib/supabase-variants';
@@ -330,10 +331,12 @@ export function AdminProducts() {
         category_id: data.category_id || null,
         is_group_buy_eligible: data.is_group_buy_eligible,
         is_flash_deal: data.is_flash_deal,
-        flash_deal_starts_at: data.is_flash_deal && data.flash_deal_starts_at
-          ? new Date(data.flash_deal_starts_at).toISOString()
+        flash_deal_starts_at: data.is_flash_deal
+          ? toIsoFromDateTimeLocal(data.flash_deal_starts_at)
           : null,
-        flash_deal_ends_at: data.is_flash_deal && data.flash_deal_ends_at ? new Date(data.flash_deal_ends_at).toISOString() : null,
+        flash_deal_ends_at: data.is_flash_deal
+          ? toIsoFromDateTimeLocal(data.flash_deal_ends_at)
+          : null,
         is_free_shipping: data.is_free_shipping,
         is_ready_now: data.is_ready_now,
         is_active: data.is_active ?? true,
@@ -404,10 +407,12 @@ export function AdminProducts() {
         category_id: data.category_id || null,
         is_group_buy_eligible: data.is_group_buy_eligible,
         is_flash_deal: data.is_flash_deal,
-        flash_deal_starts_at: data.is_flash_deal && data.flash_deal_starts_at
-          ? new Date(data.flash_deal_starts_at).toISOString()
+        flash_deal_starts_at: data.is_flash_deal
+          ? toIsoFromDateTimeLocal(data.flash_deal_starts_at)
           : null,
-        flash_deal_ends_at: data.is_flash_deal && data.flash_deal_ends_at ? new Date(data.flash_deal_ends_at).toISOString() : null,
+        flash_deal_ends_at: data.is_flash_deal
+          ? toIsoFromDateTimeLocal(data.flash_deal_ends_at)
+          : null,
         is_free_shipping: data.is_free_shipping,
         is_ready_now: data.is_ready_now,
         is_active: data.is_active ?? true,
@@ -509,10 +514,8 @@ export function AdminProducts() {
         category_id: product.category_id || '',
         is_group_buy_eligible: product.is_group_buy_eligible || false,
         is_flash_deal: product.is_flash_deal || false,
-        flash_deal_starts_at: product.flash_deal_starts_at
-          ? new Date(product.flash_deal_starts_at).toISOString().slice(0, 16)
-          : '',
-        flash_deal_ends_at: product.flash_deal_ends_at ? new Date(product.flash_deal_ends_at).toISOString().slice(0, 16) : '',
+        flash_deal_starts_at: toDateTimeLocalValue(product.flash_deal_starts_at),
+        flash_deal_ends_at: toDateTimeLocalValue(product.flash_deal_ends_at),
         is_free_shipping: product.is_free_shipping || false,
         is_ready_now: product.is_ready_now || false,
         is_active: product.is_active ?? true,

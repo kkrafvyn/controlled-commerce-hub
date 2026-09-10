@@ -19,9 +19,9 @@ import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
 import { isPaystackAmountValid } from '@/lib/paymentVerification';
 import { VariantQuantityStepper } from '@/components/groupbuy/VariantQuantityStepper';
 import {
-  formatGroupBuyTimeRemaining,
   getLeaveWindowInfo,
 } from '@/lib/groupBuyTiming';
+import { DealCountdown } from '@/components/shared/DealCountdown';
 import { cn } from '@/lib/utils';
 import {
   buildGroupBuyVariantSelections,
@@ -773,9 +773,13 @@ export function JoinGroupBuyDialog({
             ) : (
               <p className="text-xs font-medium text-primary">Goal reached!</p>
             )}
-            <p className="text-xs text-muted-foreground">
-              {formatGroupBuyTimeRemaining(groupBuy.expires_at)}
-            </p>
+            <DealCountdown
+              targetAt={groupBuy.expires_at}
+              compact
+              endedLabel="Expired"
+              variant="secondary"
+              className="w-fit"
+            />
           </div>
 
           {hasJoined ? (

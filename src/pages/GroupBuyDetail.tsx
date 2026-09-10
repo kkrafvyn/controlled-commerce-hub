@@ -17,6 +17,7 @@ import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyP
 import { canExtendGroupBuy, getGroupBuyDisplayStatus, getGroupBuyStatusLabel } from '@/lib/groupBuyTiming';
 import { hasScheduleStarted } from '@/lib/dealSchedule';
 import { formatStoreDateTime } from '@/lib/date-utils';
+import { DealCountdown } from '@/components/shared/DealCountdown';
 import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
 import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
 import { useAuth } from '@/contexts/AuthContext';
@@ -310,9 +311,27 @@ export default function GroupBuyDetail() {
                         <Clock className="h-4 w-4" />
                       )}
                       <span className="text-sm">
-                        {isScheduled && groupBuy.starts_at
-                          ? `Starts ${formatStoreDateTime(groupBuy.starts_at)}`
-                          : statusLabel}
+                        {isScheduled && groupBuy.starts_at ? (
+                          <DealCountdown
+                            targetAt={groupBuy.starts_at}
+                            prefix="Starts in"
+                            compact
+                            variant="secondary"
+                            endedLabel="Starting"
+                            showIcon={false}
+                            className="bg-transparent px-0 text-sm font-medium text-inherit hover:bg-transparent"
+                          />
+                        ) : isOpen ? (
+                          <DealCountdown
+                            targetAt={groupBuy.expires_at}
+                            compact
+                            endedLabel="Expired"
+                            showIcon={false}
+                            className="bg-transparent px-0 text-sm font-medium text-inherit hover:bg-transparent"
+                          />
+                        ) : (
+                          statusLabel
+                        )}
                       </span>
                     </div>
                   </div>

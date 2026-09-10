@@ -1,3 +1,5 @@
+import { formatDealCountdownLabel, getDealCountdown } from '@/lib/dealSchedule';
+
 interface GroupBuyCountdown {
   totalMs: number;
   totalMinutes: number;
@@ -36,43 +38,29 @@ export function getGroupBuyCountdown(
   expiresAt: string,
   nowInput: number = Date.now(),
 ): GroupBuyCountdown {
-  const totalMs = new Date(expiresAt).getTime() - nowInput;
-  const clampedMs = Math.max(0, totalMs);
-  const totalMinutes = Math.floor(clampedMs / (1000 * 60));
-  const totalHours = Math.floor(clampedMs / (1000 * 60 * 60));
-  const days = Math.floor(totalHours / 24);
-  const hours = totalHours % 24;
-  const minutes = totalMinutes % 60;
+  const countdown = getDealCountdown(expiresAt, nowInput);
+  const totalMinutes = Math.floor(Math.max(0, countdown.totalMs) / (1000 * 60));
+  const totalHours = Math.floor(Math.max(0, countdown.totalMs) / (1000 * 60 * 60));
 
   return {
-    totalMs,
+    totalMs: countdown.totalMs,
     totalMinutes,
     totalHours,
-    days,
-    hours,
-    minutes,
-    isExpired: totalMs <= 0,
+    days: countdown.days,
+    hours: countdown.hours,
+    minutes: countdown.minutes,
+    isExpired: countdown.isExpired,
   };
 }
 
-export function formatGroupBuyTimeRemaining(expiresAt: string): string {
-  const countdown = getGroupBuyCountdown(expiresAt);
+export function formatGroupBuyTimeRemaining(expiresAt: string, nowInput: number = Date.now()): string {
+  const label = formatDealCountdownLabel(
+    expiresAt,
+    { endedLabel: 'Expired', compact: true },
+    nowInput,
+  );
 
-  if (countdown.isExpired) {
-    return 'Expired';
-  }
-
-  if (countdown.days > 0) {
-    return countdown.hours > 0
-      ? `${countdown.days}d ${countdown.hours}h left`
-      : `${countdown.days}d left`;
-  }
-
-  if (countdown.totalHours > 0) {
-    return `${countdown.totalHours}h ${countdown.minutes}m left`;
-  }
-
-  return `${Math.max(1, countdown.totalMinutes)}m left`;
+  return label === 'Expired' ? label : `${label} left`;
 }
 
 export function getGroupBuyDisplayStatus({

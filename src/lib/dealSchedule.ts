@@ -12,6 +12,100 @@ export function toIsoFromDateTimeLocal(value: string | null | undefined): string
   return date.toISOString();
 }
 
+/** Convert an ISO timestamp into a value suitable for `<input type="datetime-local">`. */
+export function toDateTimeLocalValue(value: string | Date | null | undefined): string {
+  if (!value) {
+    return '';
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().slice(0, 16);
+}
+
+export interface DealCountdownParts {
+  totalMs: number;
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  isExpired: boolean;
+  isUpcoming: boolean;
+}
+
+export function getDealCountdown(
+  targetAt: string | null | undefined,
+  nowInput: number = Date.now(),
+): DealCountdownParts {
+  if (!targetAt) {
+    return {
+      totalMs: 0,
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      isExpired: true,
+      isUpcoming: false,
+    };
+  }
+
+  const totalMs = new Date(targetAt).getTime() - nowInput;
+  const clampedMs = Math.max(0, totalMs);
+  const days = Math.floor(clampedMs / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((clampedMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((clampedMs % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((clampedMs % (1000 * 60)) / 1000);
+
+  return {
+    totalMs,
+    days,
+    hours,
+    minutes,
+    seconds,
+    isExpired: totalMs <= 0,
+    isUpcoming: totalMs > 0,
+  };
+}
+
+export function formatDealCountdownLabel(
+  targetAt: string | null | undefined,
+  {
+    endedLabel = 'Ended',
+    prefix,
+    compact = false,
+  }: {
+    endedLabel?: string;
+    prefix?: string;
+    compact?: boolean;
+  } = {},
+  nowInput: number = Date.now(),
+): string {
+  const countdown = getDealCountdown(targetAt, nowInput);
+  if (!targetAt || countdown.isExpired) {
+    return endedLabel;
+  }
+
+  let body: string;
+  if (countdown.days > 0) {
+    body = compact
+      ? `${countdown.days}d ${countdown.hours}h`
+      : `${countdown.days}d ${countdown.hours}h ${countdown.minutes}m`;
+  } else if (countdown.hours > 0) {
+    body = compact
+      ? `${countdown.hours}h ${countdown.minutes}m`
+      : `${countdown.hours}h ${countdown.minutes}m ${countdown.seconds}s`;
+  } else {
+    body = `${countdown.minutes}m ${countdown.seconds}s`;
+  }
+
+  return prefix ? `${prefix} ${body}` : body;
+}
+
 export function hasScheduleStarted(startsAt: string | null | undefined, now = new Date()): boolean {
   if (!startsAt) {
     return true;

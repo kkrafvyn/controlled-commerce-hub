@@ -6,7 +6,7 @@ import { useMyGroupBuys } from '@/hooks/useMyGroupBuys';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import { Users, Loader2, Clock, CheckCircle, XCircle, Ban, HelpCircle, Sparkles } from 'lucide-react';
+import { Users, Loader2, Ban, HelpCircle, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +14,9 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
-import { canExtendGroupBuy, getGroupBuyDisplayStatus, getGroupBuyStatusLabel } from '@/lib/groupBuyTiming';
+import { canExtendGroupBuy, getGroupBuyDisplayStatus } from '@/lib/groupBuyTiming';
 import { ExtendGroupBuyButton } from '@/components/groupbuy/ExtendGroupBuyButton';
+import { GroupBuyStatusBadge } from '@/components/groupbuy/GroupBuyStatusBadge';
 
 export default function GroupBuys() {
   const { user } = useAuth();
@@ -131,22 +132,6 @@ export default function GroupBuys() {
                         minParticipants: groupBuy.min_participants,
                         status: groupBuy.status,
                       });
-                      const statusIcon = displayStatus === 'filled'
-                        ? <CheckCircle className="h-4 w-4" />
-                        : displayStatus === 'cancelled' || displayStatus === 'expired' || displayStatus === 'closed'
-                          ? <XCircle className="h-4 w-4" />
-                          : <Clock className="h-4 w-4" />;
-                      const statusLabel = getGroupBuyStatusLabel({
-                        currentParticipants: groupBuy.current_participants,
-                        expiresAt: groupBuy.expires_at,
-                        minParticipants: groupBuy.min_participants,
-                        status: groupBuy.status,
-                      });
-                      const statusColor = displayStatus === 'filled'
-                        ? 'bg-primary/10 text-primary'
-                        : displayStatus === 'cancelled' || displayStatus === 'expired' || displayStatus === 'closed'
-                          ? 'bg-destructive/10 text-destructive'
-                          : 'bg-accent/10 text-accent-foreground';
                       const isHost = groupBuy.created_by === user?.id;
                       const allowExtension = canExtendGroupBuy({
                         currentParticipants: groupBuy.current_participants,
@@ -172,9 +157,12 @@ export default function GroupBuys() {
                                   <Link to={`/group-buy/${groupBuy.id}`} className="font-medium text-foreground transition-colors hover:text-primary sm:truncate">
                                     {groupBuy.title || groupBuy.product.name}
                                   </Link>
-                                  <Badge className={`${statusColor} gap-1 flex-shrink-0`}>
-                                    {statusIcon} {statusLabel}
-                                  </Badge>
+                                  <GroupBuyStatusBadge
+                                    currentParticipants={groupBuy.current_participants}
+                                    expiresAt={groupBuy.expires_at}
+                                    minParticipants={groupBuy.min_participants}
+                                    status={groupBuy.status}
+                                  />
                                 </div>
                                 <div className="mb-2 flex flex-wrap items-center justify-between gap-3 text-sm">
                                   <div className="flex flex-wrap items-center gap-3">

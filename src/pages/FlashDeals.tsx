@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ProductCard } from '@/components/products/ProductCard';
-import { Badge } from '@/components/ui/badge';
-import { Zap, Clock, Loader2, Ban } from 'lucide-react';
+import { Zap, Loader2, Ban } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { isFlashDealLive } from '@/lib/dealSchedule';
 import { Product, ProductVariant } from '@/types';
@@ -38,45 +36,6 @@ interface FlashDealProductRecord {
   product_images: FlashDealImage[];
   product_variants: FlashDealVariant[];
   categories: { name: string } | null;
-}
-
-function CountdownTimer({ endsAt }: { endsAt: string }) {
-  const [timeLeft, setTimeLeft] = useState('');
-
-  useEffect(() => {
-    const update = () => {
-      const now = new Date().getTime();
-      const end = new Date(endsAt).getTime();
-      const diff = end - now;
-
-      if (diff <= 0) {
-        setTimeLeft('Ended');
-        return;
-      }
-
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      if (days > 0) {
-        setTimeLeft(`${days}d ${hours}h ${minutes}m`);
-      } else {
-        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
-      }
-    };
-
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [endsAt]);
-
-  return (
-    <Badge variant="destructive" className="gap-1">
-      <Clock className="h-3 w-3" />
-      {timeLeft}
-    </Badge>
-  );
 }
 
 function toProduct(record: FlashDealProductRecord): Product {
@@ -188,14 +147,11 @@ export default function FlashDeals() {
         ) : (
           <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
             {flashProducts.map((product) => (
-              <div key={product.id} className="relative">
-                {product.flash_deal_ends_at ? (
-                  <div className="absolute top-2 right-2 z-10">
-                    <CountdownTimer endsAt={product.flash_deal_ends_at} />
-                  </div>
-                ) : null}
-                <ProductCard product={toProduct(product)} />
-              </div>
+              <ProductCard
+                key={product.id}
+                product={toProduct(product)}
+                countdownEndsAt={product.flash_deal_ends_at}
+              />
             ))}
           </div>
         )}

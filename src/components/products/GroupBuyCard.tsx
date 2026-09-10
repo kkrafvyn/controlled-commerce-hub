@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Hourglass, LockKeyhole, Star } from 'lucide-react';
+import { LockKeyhole, Star } from 'lucide-react';
 import { GroupBuyWithProduct } from '@/hooks/useGroupBuys';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { JoinGroupBuyDialog } from '@/components/groupbuy/JoinGroupBuyDialog';
+import { DealCountdown } from '@/components/shared/DealCountdown';
 import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
-import { formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
 import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
 import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
 
@@ -19,7 +19,7 @@ interface GroupBuyCardProps {
 export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
   const { formatPrice } = useCurrency();
   const { data: participantFaces = [] } = useGroupBuyParticipantFaces(groupBuy.id, 5);
-  
+
   if (!groupBuy.product) return null;
 
   const currentParticipants = groupBuy.current_participants || 0;
@@ -39,9 +39,6 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
   });
   const productSummary = groupBuy.product.category_name || groupBuy.product.description || 'Limited group deal';
   const hasRating = Boolean(groupBuy.product.rating);
-  const ratingLabel = hasRating
-    ? `${Number(groupBuy.product.rating).toFixed(1)} rated`
-    : formatGroupBuyTimeRemaining(groupBuy.expires_at);
   const inviteText = participantsNeeded > 0
     ? `${participantsNeeded} more ${participantsNeeded === 1 ? 'person' : 'people'} needed`
     : 'Goal reached';
@@ -82,19 +79,27 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
               {effectiveDiscount}% OFF
             </Badge>
           ) : null}
+          <div className="absolute inset-x-2 bottom-2 z-[5]">
+            <DealCountdown
+              targetAt={groupBuy.expires_at}
+              compact
+              endedLabel="Expired"
+              className="w-fit max-w-full shadow-sm"
+            />
+          </div>
         </Link>
 
         <div className="flex min-w-0 flex-col justify-between gap-2.5 overflow-hidden p-2.5 sm:gap-3 sm:p-4">
           <div className="min-w-0">
             <div className="mb-1 flex items-start justify-between gap-2">
-              <Badge className="h-6 min-w-0 max-w-[58%] truncate rounded-full bg-primary/15 px-2 text-[10px] font-bold text-primary hover:bg-primary/15 sm:max-w-[54%]">
-                {hasRating ? (
+              {hasRating ? (
+                <Badge className="h-6 min-w-0 max-w-[58%] truncate rounded-full bg-primary/15 px-2 text-[10px] font-bold text-primary hover:bg-primary/15 sm:max-w-[54%]">
                   <Star className="mr-1 h-3 w-3 flex-shrink-0 fill-primary" />
-                ) : (
-                  <Hourglass className="mr-1 h-3 w-3 flex-shrink-0" />
-                )}
-                <span className="truncate">{ratingLabel}</span>
-              </Badge>
+                  <span className="truncate">{Number(groupBuy.product.rating).toFixed(1)} rated</span>
+                </Badge>
+              ) : (
+                <span className="h-6" />
+              )}
               <div className="w-[4.4rem] flex-shrink-0 text-right leading-none sm:w-[4.8rem]">
                 <p className="text-[11px] text-muted-foreground line-through">
                   {formatPrice(groupBuy.product.base_price)}
@@ -111,19 +116,19 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
             <p className="line-clamp-1 text-[11px] text-muted-foreground sm:text-xs">{productSummary}</p>
           </div>
 
-            <div className="space-y-1.5">
-              <div className="flex items-end justify-between gap-2">
-                <div>
-                  <p className="text-sm font-black text-primary sm:text-base">
-                    {currentParticipants}/{participantGoal} joined
-                  </p>
-                  <p className="text-[10px] font-semibold text-foreground">{inviteText}</p>
-                  <p className="line-clamp-2 text-[10px] text-muted-foreground">{inviteSubtext}</p>
-                </div>
-                <div className="w-12 flex-shrink-0 text-right sm:w-14">
-                  <p className="text-base font-black text-primary sm:text-lg">{Math.round(progressPercent)}%</p>
-                  <p className="text-[9px] text-muted-foreground">of goal reached</p>
-                </div>
+          <div className="space-y-1.5">
+            <div className="flex items-end justify-between gap-2">
+              <div>
+                <p className="text-sm font-black text-primary sm:text-base">
+                  {currentParticipants}/{participantGoal} joined
+                </p>
+                <p className="text-[10px] font-semibold text-foreground">{inviteText}</p>
+                <p className="line-clamp-2 text-[10px] text-muted-foreground">{inviteSubtext}</p>
+              </div>
+              <div className="w-12 flex-shrink-0 text-right sm:w-14">
+                <p className="text-base font-black text-primary sm:text-lg">{Math.round(progressPercent)}%</p>
+                <p className="text-[9px] text-muted-foreground">of goal reached</p>
+              </div>
             </div>
             <Progress value={progressPercent} className="h-1.5 bg-muted [&>div]:bg-primary" />
           </div>

@@ -46,11 +46,11 @@ import { PriceDropAlert } from '@/components/products/PriceDropAlert';
 import { BackInStockAlert } from '@/components/products/BackInStockAlert';
 import { RestockReservationDialog } from '@/components/products/RestockReservationDialog';
 import { BuyNowSheet } from '@/components/products/BuyNowSheet';
+import { DealCountdown, useDealCountdownLabel } from '@/components/shared/DealCountdown';
 import { hasScheduleStarted, isFlashDealLive } from '@/lib/dealSchedule';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { useProductActiveGroupBuys } from '@/hooks/useProductActiveGroupBuys';
-import { formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
 import { formatGroupBuyDuration } from '@/lib/groupBuyConfig';
 import { clearPendingBuyNowSession, readPendingBuyNowSession } from '@/lib/buyNowSession';
@@ -141,6 +141,20 @@ export default function ProductDetail() {
       ),
     [product],
   );
+  const activeGroupBuyCountdownTarget = useMemo(() => {
+    const preferred = activeProductGroupBuys.find((groupBuy) => groupBuy.id === preferredGroupBuyId) || null;
+    const joined = activeProductGroupBuys.find((groupBuy) => groupBuy.viewer_has_joined) || null;
+    return (preferred || joined || activeProductGroupBuys[0] || null)?.expires_at ?? null;
+  }, [activeProductGroupBuys, preferredGroupBuyId]);
+  const activeGroupBuyCountdownLabel = useDealCountdownLabel(activeGroupBuyCountdownTarget, {
+    endedLabel: 'Expired',
+    compact: true,
+  });
+  const activeGroupBuyEndsLabel = activeGroupBuyCountdownLabel
+    ? activeGroupBuyCountdownLabel === 'Expired'
+      ? 'Expired'
+      : `${activeGroupBuyCountdownLabel} left`
+    : '';
 
   // Track recently viewed
   useEffect(() => {
@@ -593,7 +607,7 @@ export default function ProductDetail() {
               </p>
               {activeProductGroupBuy ? (
                 <p className="mt-1 text-[11px] text-primary">
-                  Live group ends {formatGroupBuyTimeRemaining(activeProductGroupBuy.expires_at)}.
+                  Live group ends {activeGroupBuyEndsLabel}.
                 </p>
               ) : null}
             </div>
@@ -644,7 +658,7 @@ export default function ProductDetail() {
             </p>
             {activeProductGroupBuy ? (
               <p className="text-xs text-primary">
-                An open group is already live for this item. {formatGroupBuyTimeRemaining(activeProductGroupBuy.expires_at)}.
+                An open group is already live for this item. Ends {activeGroupBuyEndsLabel}.
               </p>
             ) : null}
           </div>
@@ -950,16 +964,35 @@ export default function ProductDetail() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex flex-wrap gap-2">
                     {flashDealLive && (
-                      <Badge className="bg-destructive text-destructive-foreground">
-                        <Zap className="mr-1 h-3 w-3" />
-                        Flash Deal
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className="bg-destructive text-destructive-foreground">
+                          <Zap className="mr-1 h-3 w-3" />
+                          Flash Deal
+                        </Badge>
+                        {product.flash_deal_ends_at ? (
+                          <DealCountdown
+                            targetAt={product.flash_deal_ends_at}
+                            compact
+                            className="shadow-sm"
+                          />
+                        ) : null}
+                      </div>
                     )}
                     {flashDealScheduled && product.flash_deal_starts_at ? (
-                      <Badge variant="secondary">
-                        <Clock className="mr-1 h-3 w-3" />
-                        Flash deal starts soon
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary">
+                          <Clock className="mr-1 h-3 w-3" />
+                          Flash deal starts soon
+                        </Badge>
+                        <DealCountdown
+                          targetAt={product.flash_deal_starts_at}
+                          prefix="Starts in"
+                          compact
+                          variant="secondary"
+                          endedLabel="Starting"
+                          className="shadow-sm"
+                        />
+                      </div>
                     ) : null}
                     {product.is_group_buy_eligible && (
                       <Badge variant="secondary" className="bg-accent text-accent-foreground">

@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, Tag, Zap, Percent, DollarSign, Gift, Save } from 'lucide-react';
 import { formatStoreDate } from '@/lib/date-utils';
-import { toIsoFromDateTimeLocal, validateScheduleRange } from '@/lib/dealSchedule';
+import { toIsoFromDateTimeLocal, toDateTimeLocalValue, validateScheduleRange } from '@/lib/dealSchedule';
 import { couponSchema, validateForm } from '@/lib/validations/admin';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
@@ -141,10 +141,10 @@ export function AdminPromotions() {
       const endTimes: Record<string, string> = {};
       flashDealProducts.forEach(p => {
         if (p.flash_deal_starts_at) {
-          startTimes[p.id] = new Date(p.flash_deal_starts_at).toISOString().slice(0, 16);
+          startTimes[p.id] = toDateTimeLocalValue(p.flash_deal_starts_at);
         }
         if (p.flash_deal_ends_at) {
-          endTimes[p.id] = new Date(p.flash_deal_ends_at).toISOString().slice(0, 16);
+          endTimes[p.id] = toDateTimeLocalValue(p.flash_deal_ends_at);
         }
       });
       setFlashStartTimes(startTimes);
@@ -694,8 +694,8 @@ export function AdminPromotions() {
                       onClick={() => {
                         const startVal = flashStartTimes[product.id];
                         const endVal = flashEndTimes[product.id];
-                        const startsAt = startVal ? new Date(startVal).toISOString() : null;
-                        const endsAt = endVal ? new Date(endVal).toISOString() : null;
+                        const startsAt = toIsoFromDateTimeLocal(startVal);
+                        const endsAt = toIsoFromDateTimeLocal(endVal);
                         const scheduleError = validateScheduleRange(startsAt, endsAt);
                         if (scheduleError) {
                           toast.error(scheduleError);
