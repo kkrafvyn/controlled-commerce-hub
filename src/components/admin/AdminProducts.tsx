@@ -72,6 +72,7 @@ interface ProductForm {
   item_code: string;
   base_price: string;
   group_buy_price: string;
+  flash_deal_price: string;
   category_id: string;
   is_group_buy_eligible: boolean;
   is_flash_deal: boolean;
@@ -96,6 +97,7 @@ const defaultForm: ProductForm = {
   item_code: '',
   base_price: '',
   group_buy_price: '',
+  flash_deal_price: '',
   category_id: '',
   is_group_buy_eligible: false,
   is_flash_deal: false,
@@ -328,6 +330,9 @@ export function AdminProducts() {
         item_code: data.item_code,
         base_price: parseFloat(data.base_price),
         group_buy_price: data.group_buy_price ? parseFloat(data.group_buy_price) : null,
+        flash_deal_price: data.is_flash_deal && data.flash_deal_price
+          ? parseFloat(data.flash_deal_price)
+          : null,
         category_id: data.category_id || null,
         is_group_buy_eligible: data.is_group_buy_eligible,
         is_flash_deal: data.is_flash_deal,
@@ -404,6 +409,9 @@ export function AdminProducts() {
         item_code: data.item_code,
         base_price: parseFloat(data.base_price),
         group_buy_price: data.group_buy_price ? parseFloat(data.group_buy_price) : null,
+        flash_deal_price: data.is_flash_deal && data.flash_deal_price
+          ? parseFloat(data.flash_deal_price)
+          : null,
         category_id: data.category_id || null,
         is_group_buy_eligible: data.is_group_buy_eligible,
         is_flash_deal: data.is_flash_deal,
@@ -511,6 +519,7 @@ export function AdminProducts() {
         item_code: product.item_code || '',
         base_price: String(product.base_price || 0),
         group_buy_price: product.group_buy_price != null ? String(product.group_buy_price) : '',
+        flash_deal_price: product.flash_deal_price != null ? String(product.flash_deal_price) : '',
         category_id: product.category_id || '',
         is_group_buy_eligible: product.is_group_buy_eligible || false,
         is_flash_deal: product.is_flash_deal || false,
@@ -791,7 +800,20 @@ export function AdminProducts() {
               </div>
 
               {form.is_flash_deal && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="flash_deal_price">Flash Sale Price</Label>
+                    <Input
+                      id="flash_deal_price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.flash_deal_price}
+                      onChange={(e) => setForm({ ...form, flash_deal_price: e.target.value })}
+                      placeholder="Sale price during flash deal"
+                      required
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="flash_deal_starts_at">Flash Deal Start Time</Label>
                     <Input

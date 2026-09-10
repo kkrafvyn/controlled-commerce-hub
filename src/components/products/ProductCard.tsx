@@ -76,6 +76,12 @@ export function ProductCard({
     displayPrice.kind === 'range'
       ? `${formatPrice(displayPrice.minPrice)} - ${formatPrice(displayPrice.maxPrice)}`
       : formatPrice(displayPrice.price);
+  const compareAtLabel =
+    displayPrice.kind === 'single' &&
+    displayPrice.compareAtPrice != null &&
+    displayPrice.compareAtPrice > displayPrice.price
+      ? formatPrice(displayPrice.compareAtPrice)
+      : null;
   const [imageSrc, setImageSrc] = useState(() => resolveProductImageUrl(product.images[0]));
 
   useEffect(() => {
@@ -90,31 +96,31 @@ export function ProductCard({
     return (
       <Link to={`/product/${product.id}`} className="block h-full min-w-0">
         <Card className="group h-full min-w-0 overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
-          <div className="flex flex-col min-[420px]:flex-row">
-            {/* Image - horizontal layout */}
-            <div className="relative aspect-[1.8/1] w-full shrink-0 overflow-hidden bg-muted min-[420px]:h-28 min-[420px]:w-28 sm:h-auto sm:w-48">
+          <div className="flex flex-row items-stretch">
+            {/* Always horizontal on phones so list is visibly different from grid */}
+            <div className="relative h-[7.25rem] w-[7.25rem] shrink-0 overflow-hidden bg-muted sm:h-36 sm:w-36 md:h-40 md:w-44">
               <img
                 src={imageSrc}
                 alt={product.name}
                 onError={handleImageError}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
-              <div className="absolute top-2 left-2 flex flex-col gap-1">
+              <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
                 {product.isReadyNow && (
-                  <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5">
-                    <Clock className="h-2.5 w-2.5 mr-0.5" />
+                  <Badge className="bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">
+                    <Clock className="mr-0.5 h-2.5 w-2.5" />
                     Ready
                   </Badge>
                 )}
                 {product.isFlashDeal && !countdownEndsAt && (
-                  <Badge className="bg-destructive text-destructive-foreground text-[10px] px-1.5 py-0.5">
-                    <Zap className="h-2.5 w-2.5 mr-0.5" />
+                  <Badge className="bg-destructive px-1.5 py-0.5 text-[10px] text-destructive-foreground">
+                    <Zap className="mr-0.5 h-2.5 w-2.5" />
                     Flash
                   </Badge>
                 )}
               </div>
               {countdownEndsAt ? (
-                <div className="absolute inset-x-2 bottom-2 z-[5]">
+                <div className="absolute inset-x-1 bottom-1 z-[5]">
                   <DealCountdown
                     targetAt={countdownEndsAt}
                     compact
@@ -123,38 +129,36 @@ export function ProductCard({
                 </div>
               ) : null}
             </div>
-            {/* Content */}
-            <CardContent className="flex min-w-0 flex-1 flex-col justify-between overflow-hidden p-3 sm:p-4">
+            <CardContent className="flex min-w-0 flex-1 flex-col justify-between gap-2 overflow-hidden p-3 sm:p-4">
               <div className="min-w-0">
-                <p className="mb-1 truncate text-xs text-muted-foreground">{product.category}</p>
-                <h3 className="mb-1.5 line-clamp-2 overflow-hidden break-words text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary sm:mb-2 sm:text-lg">
+                <p className="mb-0.5 truncate text-[11px] text-muted-foreground sm:text-xs">{product.category}</p>
+                <h3 className="line-clamp-2 overflow-hidden break-words text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary sm:text-base">
                   {product.name}
                 </h3>
-                <p className="mb-2 hidden text-sm text-muted-foreground sm:line-clamp-2">
+                <p className="mt-1 hidden text-sm text-muted-foreground sm:line-clamp-2">
                   {product.description}
                 </p>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-base font-bold text-primary sm:text-xl">
-                  {priceLabel}
-                </p>
-                <div className="flex items-center justify-between gap-3 sm:justify-end">
-                  <div className="flex items-center gap-1">
+              <div className="flex items-end justify-between gap-2">
+                <div className="min-w-0">
+                  {compareAtLabel ? (
+                    <p className="truncate text-[11px] text-muted-foreground line-through">{compareAtLabel}</p>
+                  ) : null}
+                  <p className="truncate text-base font-bold text-primary sm:text-lg">{priceLabel}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <div className="mr-1 flex items-center gap-0.5">
                     <Star className="h-3.5 w-3.5 fill-accent-foreground text-accent-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      {product.rating}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{product.rating}</span>
                   </div>
-                  <div className="ml-auto flex gap-0.5 sm:ml-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleWishlistClick}>
-                      <Heart className={`h-3.5 w-3.5 ${inWishlist ? 'fill-destructive text-destructive' : 'text-muted-foreground'}`} />
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleWishlistClick}>
+                    <Heart className={`h-3.5 w-3.5 ${inWishlist ? 'fill-destructive text-destructive' : 'text-muted-foreground'}`} />
+                  </Button>
+                  {onQuickView && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleQuickView}>
+                      <Eye className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
-                    {onQuickView && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleQuickView}>
-                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -247,9 +251,14 @@ export function ProductCard({
             {product.name}
           </h3>
           <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
-            <p className="min-w-0 truncate text-base font-bold text-primary sm:text-lg">
-              {priceLabel}
-            </p>
+            <div className="min-w-0">
+              {compareAtLabel ? (
+                <p className="truncate text-[10px] text-muted-foreground line-through sm:text-xs">{compareAtLabel}</p>
+              ) : null}
+              <p className="min-w-0 truncate text-base font-bold text-primary sm:text-lg">
+                {priceLabel}
+              </p>
+            </div>
             <div className="flex shrink-0 items-center gap-0.5">
               <Star className="h-3 w-3 sm:h-4 sm:w-4 fill-accent-foreground text-accent-foreground" />
               <span className="text-[10px] sm:text-sm text-muted-foreground">

@@ -24,6 +24,9 @@ export interface Product {
   description: string;
   category: string;
   basePrice: number;
+  flashDealPrice?: number | null;
+  flashDealStartsAt?: string | null;
+  flashDealEndsAt?: string | null;
   images: string[];
   variants: ProductVariant[];
   shippingOptions: ShippingOption[];

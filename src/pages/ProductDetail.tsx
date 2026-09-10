@@ -63,7 +63,7 @@ import {
 import { buildDetailGalleryImages } from '@/lib/product-images';
 import { formatStoreMonthDay } from '@/lib/date-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { getProductDisplayPrice, toConsumerProduct, toConsumerVariant } from '@/lib/product-adapters';
+import { getLiveFlashDealPrice, getProductDisplayPrice, toConsumerProduct, toConsumerVariant } from '@/lib/product-adapters';
 import { resolveVariantShippingPrice } from '@/lib/shipping';
 
 interface SelectedVariant {
@@ -242,11 +242,17 @@ export default function ProductDetail() {
     setSelectedVariants([]);
   };
 
+  const liveFlashPrice = useMemo(
+    () => (product ? getLiveFlashDealPrice(product) : null),
+    [product],
+  );
+
   const totalPrice = useMemo(() => {
     return selectedVariants.reduce((sum, variant) => {
-      return sum + variant.price * variant.quantity;
+      const unitPrice = liveFlashPrice ?? variant.price;
+      return sum + unitPrice * variant.quantity;
     }, 0);
-  }, [selectedVariants]);
+  }, [liveFlashPrice, selectedVariants]);
 
   const availableShipping = useMemo(
     () => product?.shipping_rules.filter((r) => r.is_allowed && r.shipping_class) || [],
@@ -538,11 +544,22 @@ export default function ProductDetail() {
   const consumerProduct = toConsumerProduct(product);
   const displayPrice = (() => {
     if (selectedVariants.length > 0) {
-      return { kind: 'single' as const, price: totalPrice / Math.max(1, selectedItemCount) };
+      return {
+        kind: 'single' as const,
+        price: totalPrice / Math.max(1, selectedItemCount),
+        compareAtPrice:
+          liveFlashPrice != null && product.base_price > liveFlashPrice ? product.base_price : null,
+      };
     }
 
     if (mobileActiveVariant) {
-      return { kind: 'single' as const, price: mobileActiveVariant.price };
+      const price = liveFlashPrice ?? mobileActiveVariant.price;
+      return {
+        kind: 'single' as const,
+        price,
+        compareAtPrice:
+          liveFlashPrice != null && product.base_price > liveFlashPrice ? product.base_price : null,
+      };
     }
 
     return getProductDisplayPrice(consumerProduct);
@@ -782,11 +799,18 @@ export default function ProductDetail() {
                 {product.name}
               </h1>
               <div className="flex items-end gap-2">
-                <p className="text-[1.75rem] font-bold leading-none text-primary">
-                  {displayPrice.kind === 'range'
-                    ? `${formatPrice(displayPrice.minPrice)} - ${formatPrice(displayPrice.maxPrice)}`
-                    : formatPrice(displayPrice.price)}
-                </p>
+                <div>
+                  {displayPrice.kind === 'single' && displayPrice.compareAtPrice != null ? (
+                    <p className="text-sm text-muted-foreground line-through">
+                      {formatPrice(displayPrice.compareAtPrice)}
+                    </p>
+                  ) : null}
+                  <p className="text-[1.75rem] font-bold leading-none text-primary">
+                    {displayPrice.kind === 'range'
+                      ? `${formatPrice(displayPrice.minPrice)} - ${formatPrice(displayPrice.maxPrice)}`
+                      : formatPrice(displayPrice.price)}
+                  </p>
+                </div>
                 {product.group_buy_price != null && product.group_buy_price < product.base_price ? (
                   <p className="pb-0.5 text-[11px] font-medium text-primary">
                     Save {groupBuySavings}%
@@ -1039,6 +1063,11 @@ export default function ProductDetail() {
                 </div>
 
                 <div>
+                  {displayPrice.kind === 'single' && displayPrice.compareAtPrice != null ? (
+                    <p className="text-base text-muted-foreground line-through">
+                      {formatPrice(displayPrice.compareAtPrice)}
+                    </p>
+                  ) : null}
                   <p className="text-3xl font-bold text-primary">
                     {displayPrice.kind === 'range'
                       ? `${formatPrice(displayPrice.minPrice)} - ${formatPrice(displayPrice.maxPrice)}`

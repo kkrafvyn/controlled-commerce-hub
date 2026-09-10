@@ -27,8 +27,10 @@ interface FlashDealProductRecord {
   name: string;
   description: string | null;
   base_price: number;
+  flash_deal_price: number | null;
   is_group_buy_eligible: boolean | null;
   is_free_shipping: boolean | null;
+  is_flash_deal: boolean | null;
   rating: number | null;
   review_count: number | null;
   flash_deal_starts_at: string | null;
@@ -59,6 +61,9 @@ function toProduct(record: FlashDealProductRecord): Product {
     description: record.description || '',
     category: record.categories?.name || 'Uncategorized',
     basePrice: record.base_price,
+    flashDealPrice: record.flash_deal_price,
+    flashDealStartsAt: record.flash_deal_starts_at,
+    flashDealEndsAt: record.flash_deal_ends_at,
     images: images.length > 0 ? images : ['/placeholder.svg'],
     variants,
     shippingOptions: [],
@@ -85,6 +90,7 @@ export default function FlashDeals() {
           name,
           description,
           base_price,
+          flash_deal_price,
           is_group_buy_eligible,
           is_free_shipping,
           rating,

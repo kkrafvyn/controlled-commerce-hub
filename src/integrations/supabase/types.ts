@@ -1198,6 +1198,7 @@ export type Database = {
           created_at: string
           description: string | null
           flash_deal_ends_at: string | null
+          flash_deal_price: number | null
           flash_deal_starts_at: string | null
           group_buy_price: number | null
           id: string
@@ -1223,6 +1224,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           flash_deal_ends_at?: string | null
+          flash_deal_price?: number | null
           flash_deal_starts_at?: string | null
           group_buy_price?: number | null
           id?: string
@@ -1248,6 +1250,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           flash_deal_ends_at?: string | null
+          flash_deal_price?: number | null
           flash_deal_starts_at?: string | null
           group_buy_price?: number | null
           id?: string

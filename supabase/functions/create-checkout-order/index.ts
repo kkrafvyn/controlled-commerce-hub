@@ -30,6 +30,7 @@ interface ProductRow {
   is_active: boolean | null;
   is_free_shipping: boolean | null;
   is_flash_deal: boolean | null;
+  flash_deal_price: number | null;
   flash_deal_starts_at: string | null;
   flash_deal_ends_at: string | null;
   is_fragile: boolean | null;
@@ -400,7 +401,7 @@ Deno.serve(async (req) => {
         supabase
           .from('products')
           .select(
-            'id, name, base_price, is_active, is_free_shipping, is_flash_deal, flash_deal_starts_at, flash_deal_ends_at, is_fragile, reinforced_packaging_cost, allow_standard_packaging, allow_reinforced_packaging',
+            'id, name, base_price, is_active, is_free_shipping, is_flash_deal, flash_deal_price, flash_deal_starts_at, flash_deal_ends_at, is_fragile, reinforced_packaging_cost, allow_standard_packaging, allow_reinforced_packaging',
           )
           .in('id', productIds),
         fetchCheckoutVariants(supabase, productIds),
@@ -459,7 +460,17 @@ Deno.serve(async (req) => {
         throw new Error(`${product.name} does not have enough stock for this selection.`);
       }
 
-      const unitPrice = toMoney(variant?.price_override ?? product.base_price);
+      const flashLive =
+        flow === 'buy_now' &&
+        !!product.is_flash_deal &&
+        !(product.flash_deal_starts_at && new Date(product.flash_deal_starts_at).getTime() > Date.now()) &&
+        !(product.flash_deal_ends_at && new Date(product.flash_deal_ends_at).getTime() <= Date.now()) &&
+        product.flash_deal_price != null &&
+        Number(product.flash_deal_price) >= 0;
+
+      const unitPrice = toMoney(
+        flashLive ? product.flash_deal_price : (variant?.price_override ?? product.base_price),
+      );
       const lineTotal = toMoney(unitPrice * item.quantity);
       subtotal = toMoney(subtotal + lineTotal);
       quantitiesByProduct.set(product.id, (quantitiesByProduct.get(product.id) || 0) + item.quantity);

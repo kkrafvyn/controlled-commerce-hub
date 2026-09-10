@@ -12,6 +12,7 @@ export interface ProductWithDetails {
   product_number: string | null;
   base_price: number;
   group_buy_price: number | null;
+  flash_deal_price: number | null;
   is_group_buy_eligible: boolean | null;
   is_flash_deal: boolean | null;
   flash_deal_starts_at: string | null;
@@ -175,6 +176,7 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
     product_number: product.product_number,
     base_price: Number(product.base_price),
     group_buy_price: product.group_buy_price != null ? Number(product.group_buy_price) : null,
+    flash_deal_price: product.flash_deal_price != null ? Number(product.flash_deal_price) : null,
     is_group_buy_eligible: product.is_group_buy_eligible,
     is_flash_deal: product.is_flash_deal,
     flash_deal_starts_at: product.flash_deal_starts_at,
@@ -293,6 +295,7 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     product_number: product.product_number,
     base_price: Number(product.base_price),
     group_buy_price: product.group_buy_price != null ? Number(product.group_buy_price) : null,
+    flash_deal_price: product.flash_deal_price != null ? Number(product.flash_deal_price) : null,
     is_group_buy_eligible: product.is_group_buy_eligible,
     is_flash_deal: product.is_flash_deal,
     flash_deal_starts_at: product.flash_deal_starts_at,

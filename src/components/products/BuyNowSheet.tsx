@@ -42,6 +42,7 @@ import { hasRequiredGroupBuyDeliveryDetails } from '@/lib/groupBuyCheckout';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { toast } from 'sonner';
+import { getLiveFlashDealPrice } from '@/lib/product-adapters';
 
 interface SelectedVariantChoice {
   id: string;
@@ -203,20 +204,24 @@ export function BuyNowSheet({
     availableShippingRules.find((rule) => rule.id === selectedShippingId) || null;
   const resolvedShippingRule =
     selectedShippingRule || (availableShippingRules.length === 1 ? availableShippingRules[0] : null);
+  const flashUnitPrice = getLiveFlashDealPrice(product);
   const checkoutSelections = useMemo(() => {
     if (hasSelectedVariantChoices) {
-      return selectedVariants.map((variant) => ({
-        key: variant.id,
-        variantId: variant.id,
-        label: buildVariantLabel(variant),
-        quantity: variant.quantity,
-        unitPrice: variant.price,
-        lineTotal: variant.price * variant.quantity,
-        imageUrl: variant.image_url || product.images[0] || '/placeholder.svg',
-      }));
+      return selectedVariants.map((variant) => {
+        const unitPrice = flashUnitPrice ?? variant.price;
+        return {
+          key: variant.id,
+          variantId: variant.id,
+          label: buildVariantLabel(variant),
+          quantity: variant.quantity,
+          unitPrice,
+          lineTotal: unitPrice * variant.quantity,
+          imageUrl: variant.image_url || product.images[0] || '/placeholder.svg',
+        };
+      });
     }
 
-    const unitPrice = selectedVariant?.price ?? product.base_price;
+    const unitPrice = flashUnitPrice ?? selectedVariant?.price ?? product.base_price;
     return [
       {
         key: selectedVariant?.id || 'standard',
@@ -228,7 +233,15 @@ export function BuyNowSheet({
         imageUrl: selectedVariant?.image_url || product.images[0] || '/placeholder.svg',
       },
     ];
-  }, [hasSelectedVariantChoices, product.base_price, product.images, quantity, selectedVariant, selectedVariants]);
+  }, [
+    flashUnitPrice,
+    hasSelectedVariantChoices,
+    product.base_price,
+    product.images,
+    quantity,
+    selectedVariant,
+    selectedVariants,
+  ]);
   const subtotal = checkoutSelections.reduce((sum, item) => sum + item.lineTotal, 0);
   const totalQuantity = checkoutSelections.reduce((sum, item) => sum + item.quantity, 0);
   const effectiveShippingCost = useMemo(() => {

@@ -172,7 +172,15 @@ export default function Products() {
     Math.max(0, Math.min(initialMinPrice, initialMaxPrice)),
     Math.max(initialMinPrice, initialMaxPrice),
   ]);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'grid';
+    try {
+      const saved = window.localStorage.getItem('ajyn-products-view-mode');
+      return saved === 'list' || saved === 'grid' ? saved : 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
   const [filters, setFilters] = useState({
     groupBuyOnly: parseBooleanParam(searchParams.get('groupBuy')),
     flashDealsOnly: parseBooleanParam(searchParams.get('flashDeals')),
@@ -812,20 +820,36 @@ export default function Products() {
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
               size="icon"
-              className="h-8 w-8 rounded-lg md:h-9 md:w-9"
-              onClick={() => setViewMode('grid')}
+              className="h-9 w-9 rounded-lg"
+              onClick={() => {
+                setViewMode('grid');
+                try {
+                  window.localStorage.setItem('ajyn-products-view-mode', 'grid');
+                } catch {
+                  /* ignore */
+                }
+              }}
               aria-label="Show products in grid view"
+              aria-pressed={viewMode === 'grid'}
             >
-              <LayoutGrid className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <LayoutGrid className="h-4 w-4" />
             </Button>
             <Button
               variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="icon"
-              className="h-8 w-8 rounded-lg md:h-9 md:w-9"
-              onClick={() => setViewMode('list')}
+              className="h-9 w-9 rounded-lg"
+              onClick={() => {
+                setViewMode('list');
+                try {
+                  window.localStorage.setItem('ajyn-products-view-mode', 'list');
+                } catch {
+                  /* ignore */
+                }
+              }}
               aria-label="Show products in list view"
+              aria-pressed={viewMode === 'list'}
             >
-              <List className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <List className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -859,7 +883,7 @@ export default function Products() {
           <div
             className={
               viewMode === 'grid'
-                ? 'grid min-w-0 grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
+                ? 'grid min-w-0 grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
                 : 'flex min-w-0 flex-col gap-3 sm:gap-4'
             }
           >

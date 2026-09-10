@@ -26,7 +26,14 @@ type CouponRow = Tables<'coupons'>;
 type CouponInsert = TablesInsert<'coupons'>;
 type FlashDealProductRow = Pick<
   Tables<'products'>,
-  'id' | 'name' | 'base_price' | 'is_flash_deal' | 'is_active' | 'flash_deal_starts_at' | 'flash_deal_ends_at'
+  | 'id'
+  | 'name'
+  | 'base_price'
+  | 'flash_deal_price'
+  | 'is_flash_deal'
+  | 'is_active'
+  | 'flash_deal_starts_at'
+  | 'flash_deal_ends_at'
 >;
 type StoreSettingValue = Tables<'store_settings'>['value'];
 type StoreSettingsMap = Record<string, StoreSettingValue>;
@@ -74,6 +81,7 @@ export function AdminPromotions() {
   // Flash deal schedule tracked locally
   const [flashStartTimes, setFlashStartTimes] = useState<Record<string, string>>({});
   const [flashEndTimes, setFlashEndTimes] = useState<Record<string, string>>({});
+  const [flashPrices, setFlashPrices] = useState<Record<string, string>>({});
 
   // Referral settings
   const [refDiscount, setRefDiscount] = useState('10');
@@ -99,7 +107,7 @@ export function AdminPromotions() {
     queryFn: async (): Promise<FlashDealProductRow[]> => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, base_price, is_flash_deal, is_active, flash_deal_starts_at, flash_deal_ends_at')
+        .select('id, name, base_price, flash_deal_price, is_flash_deal, is_active, flash_deal_starts_at, flash_deal_ends_at')
         .eq('is_active', true)
         .order('name');
       if (error) throw error;
@@ -139,6 +147,7 @@ export function AdminPromotions() {
     if (flashDealProducts) {
       const startTimes: Record<string, string> = {};
       const endTimes: Record<string, string> = {};
+      const prices: Record<string, string> = {};
       flashDealProducts.forEach(p => {
         if (p.flash_deal_starts_at) {
           startTimes[p.id] = toDateTimeLocalValue(p.flash_deal_starts_at);
@@ -146,9 +155,11 @@ export function AdminPromotions() {
         if (p.flash_deal_ends_at) {
           endTimes[p.id] = toDateTimeLocalValue(p.flash_deal_ends_at);
         }
+        prices[p.id] = p.flash_deal_price != null ? String(p.flash_deal_price) : '';
       });
       setFlashStartTimes(startTimes);
       setFlashEndTimes(endTimes);
+      setFlashPrices(prices);
     }
   }, [flashDealProducts]);
 
@@ -287,16 +298,18 @@ export function AdminPromotions() {
   const saveFlashSchedule = useMutation({
     mutationFn: async ({
       id,
+      flash_deal_price,
       flash_deal_starts_at,
       flash_deal_ends_at,
     }: {
       id: string;
+      flash_deal_price: number | null;
       flash_deal_starts_at: string | null;
       flash_deal_ends_at: string | null;
     }) => {
       const { error } = await supabase
         .from('products')
-        .update({ flash_deal_starts_at, flash_deal_ends_at })
+        .update({ flash_deal_price, flash_deal_starts_at, flash_deal_ends_at })
         .eq('id', id);
       if (error) throw error;
 
@@ -306,8 +319,8 @@ export function AdminPromotions() {
         action: 'flash_deal.schedule_updated',
         entityType: 'product',
         entityId: id,
-        summary: `Updated flash deal schedule for ${product?.name || id}.`,
-        metadata: { flash_deal_starts_at, flash_deal_ends_at },
+        summary: `Updated flash deal price/schedule for ${product?.name || id}.`,
+        metadata: { flash_deal_price, flash_deal_starts_at, flash_deal_ends_at },
       });
     },
     onSuccess: () => {
@@ -315,7 +328,7 @@ export function AdminPromotions() {
       queryClient.invalidateQueries({ queryKey: ['admin-flash-deals'] });
       queryClient.invalidateQueries({ queryKey: ['flash-deals'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast.success('Flash deal schedule saved');
+      toast.success('Flash deal saved');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -630,7 +643,7 @@ export function AdminPromotions() {
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           <p className="text-sm text-muted-foreground mb-4">
-            Toggle flash deal status and set start/end times. Flash deal products are highlighted on the storefront.
+            Toggle flash deals, set the sale price, and schedule start/end times. The flash price is what customers pay while the deal is live.
           </p>
           <div className="space-y-3">
             {flashDealProducts?.map((product) => (
@@ -638,7 +651,12 @@ export function AdminPromotions() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <p className="break-words font-medium text-foreground">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">{formatPrice(Number(product.base_price))}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Regular {formatPrice(Number(product.base_price))}
+                      {product.flash_deal_price != null
+                        ? ` · Flash ${formatPrice(Number(product.flash_deal_price))}`
+                        : ''}
+                    </p>
                   </div>
                   <div className="flex items-center justify-end gap-3 sm:justify-start">
                     {product.is_flash_deal && (
@@ -668,7 +686,20 @@ export function AdminPromotions() {
                   </div>
                 </div>
                 {product.is_flash_deal && (
-                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-xs">Flash Sale Price (GHS)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
+                        placeholder={String(product.base_price)}
+                        value={flashPrices[product.id] ?? ''}
+                        onChange={e => setFlashPrices(prev => ({ ...prev, [product.id]: e.target.value }))}
+                        className="h-10 max-w-full sm:h-9"
+                      />
+                    </div>
                     <div className="min-w-0 space-y-1">
                       <Label className="text-xs">Flash Deal Starts At</Label>
                       <Input
@@ -694,6 +725,7 @@ export function AdminPromotions() {
                       onClick={() => {
                         const startVal = flashStartTimes[product.id];
                         const endVal = flashEndTimes[product.id];
+                        const priceRaw = (flashPrices[product.id] ?? '').trim();
                         const startsAt = toIsoFromDateTimeLocal(startVal);
                         const endsAt = toIsoFromDateTimeLocal(endVal);
                         const scheduleError = validateScheduleRange(startsAt, endsAt);
@@ -705,8 +737,22 @@ export function AdminPromotions() {
                           toast.error('Set an end time first');
                           return;
                         }
+                        if (!priceRaw) {
+                          toast.error('Set a flash sale price');
+                          return;
+                        }
+                        const flashPrice = Number(priceRaw);
+                        if (!Number.isFinite(flashPrice) || flashPrice < 0) {
+                          toast.error('Enter a valid flash sale price');
+                          return;
+                        }
+                        if (flashPrice > Number(product.base_price)) {
+                          toast.error('Flash price should be less than or equal to the regular price');
+                          return;
+                        }
                         saveFlashSchedule.mutate({
                           id: product.id,
+                          flash_deal_price: flashPrice,
                           flash_deal_starts_at: startsAt,
                           flash_deal_ends_at: endsAt,
                         });
